@@ -40,6 +40,12 @@ def HasSumNet {I X: Type*} [AddCommMonoid X] [TopologicalSpace X] (f: I → X) (
 def SummableNet {I X: Type*}  [AddCommMonoid X] [TopologicalSpace X] (f: I → X): Prop :=
    ∃ (x: X), HasSumNet f x
 
+def HasAbsSum {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+   (f: I → X) (t: ℝ): Prop := HasSumNet (fun (i: I) ↦ ‖f i‖) t
+
+def AbsSummable {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+   (f: I → X): Prop := ∃ (t: ℝ), HasAbsSum 𝕂 f t
+
 def CauchySumNet {I X: Type*} [AddCommMonoid X] [UniformSpace X] (f: I → X): Prop :=
    CauchyNet (fun (E: Finset I) ↦ ∑ e ∈ E, f e)
 

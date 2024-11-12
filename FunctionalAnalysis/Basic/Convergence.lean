@@ -8,6 +8,70 @@ open Set Filter Topology Classical Function DirectedSet Net
 
 /- ### Basic results ### -/
 
+/- Characterization of summability in a normed space -/
+theorem hassum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X) (x: X):
+  HasSum f x ↔ ∀ ε, 0 < ε → (∃ (F₀: Finset I), ∀ (F: Finset I), (F₀ ⊆ F → ‖(∑ i ∈ F, f i) - x‖ < ε)) := by
+    rw [hassum_iff_hassumnet]
+    unfold HasSumNet
+    simp only [limit_metric_iff, dist_eq_norm, Finset.le_eq_subset]
+
+/- Characterization of absolute summability -/
+theorem hasabssum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X) (t: ℝ):
+  HasAbsSum 𝕂 f t ↔ BddAbove {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} := by
+    constructor
+    · intro fabssumt
+      sorry
+    · sorry
+
+theorem abssum_of{I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X) {t: ℝ} (h: HasAbsSum 𝕂 f t):
+  IsLUB {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} t := by
+    sorry
+
+/- Characterization of Cauchy condition for arbitrary family in a normed space -/
+lemma Finset.inter_sdiff_subset {I: Type*} (A B C: Finset I) (h: C ⊆ B): C ∩ (A \ B) = ∅ := by
+  have: C ∩ (A \ B) ⊆ B ∩ (A \ B) := by
+    exact inter_subset_inter h (subset_refl (A \ B))
+  rw [Finset.inter_sdiff_self, subset_empty] at this
+  exact this
+
+theorem cauchysum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X):
+  CauchySumNet f ↔ ∀ ε, 0 < ε → (∃ (F₀: Finset I), ∀ (F: Finset I), (F₀ ∩ F = ∅ → ‖∑ i ∈ F, f i‖ < ε)) := by
+    unfold CauchySumNet
+    simp only [cauchy_metric_iff, dist_eq_norm, Finset.le_eq_subset]
+    constructor
+    · intro h ε εpos
+      rcases h ε εpos with ⟨F₀, eq⟩
+      use F₀
+      intro F FdisjF₀
+      have := eq F₀ (F₀ ∪ F) (subset_refl F₀) Finset.subset_union_left
+      rw [Finset.sum_union (Finset.disjoint_iff_inter_eq_empty.mpr FdisjF₀), sub_add_cancel_left, norm_neg] at this
+      assumption
+    · intro h ε εpos
+      rcases h (ε/2) (half_pos εpos) with ⟨F₀, eq⟩
+      use F₀
+      intro F₁ F₂ F₀subF₁ F₀subF₂
+      rw [← Finset.sdiff_union_inter F₂ F₁]
+      nth_rw 1 [← Finset.sdiff_union_inter F₁ F₂]
+      rw [Finset.sum_union (Finset.disjoint_sdiff_inter F₁ F₂), Finset.sum_union (Finset.disjoint_sdiff_inter F₂ F₁),
+          add_comm (∑ x ∈ F₂ \ F₁, f x) _, ← sub_sub, ← add_sub, ← add_sub, Finset.inter_comm F₂ F₁, sub_self, zero_sub]
+      calc
+        ‖∑ x ∈ F₁ \ F₂, f x + -∑ x ∈ F₂ \ F₁, f x‖ ≤ ‖∑ x ∈ F₁ \ F₂, f x‖ + ‖-∑ x ∈ F₂ \ F₁, f x‖ := by
+          exact norm_add_le (∑ x ∈ F₁ \ F₂, f x) (-∑ x ∈ F₂ \ F₁, f x)
+        _ = ‖∑ x ∈ F₁ \ F₂, f x‖ + ‖∑ x ∈ F₂ \ F₁, f x‖ := by
+          rw [norm_neg]
+        _ < ε/2 + ‖∑ x ∈ F₂ \ F₁, f x‖ := by
+          rw [add_lt_add_iff_right]
+          exact eq (F₁ \ F₂) (Finset.inter_sdiff_subset F₁ F₂ F₀ F₀subF₂)
+        _ < ε/2 + ε/2 := by
+          rw [add_lt_add_iff_left]
+          exact eq (F₂ \ F₁) (Finset.inter_sdiff_subset F₂ F₁ F₀ F₀subF₁)
+        _ = ε := by
+          norm_num
+
 /- Characterization of convergence of a series in a normed space -/
 theorem conv_serie_normed {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
   (f: ℕ → X) (x: X):
@@ -76,18 +140,6 @@ theorem cauchy_serie_normed {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) 
           exact Nat.le_of_lt h
         rw [Finset.sum_Iic_sub_Iic_eq_sum_Ioc mlen]
         exact eq m n n₀lem mlen
-
-/- Characterization of summability in a normed space -/
-theorem hassum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
-  (f: I → X) (x: X):
-  HasSum f x ↔ ∀ ε, 0 < ε → (∃ (F₀: Finset I), ∀ (F: Finset I), (F₀ ⊆ F → ‖(∑ i ∈ F, f i) - x‖ < ε)) := by
-    sorry
-
-/- Characterization of Cauchy condition for arbitrary family in a normed space -/
-theorem cauchysum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
-  (f: I → X):
-  CauchySumNet f ↔ ∀ ε, 0 < ε → (∃ (F₀: Finset I), ∀ (F: Finset I), (F₀ ∩ F = ∅ → ‖∑ i ∈ F, f i‖ < ε)) := by
-    sorry
 
 theorem abs_conv_implies_summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
   (f: ℕ → X): conv_abs_serie 𝕂 f → Summable f := by

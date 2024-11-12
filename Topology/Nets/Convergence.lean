@@ -231,6 +231,35 @@ lemma limit_inv_n : ∀ (a: ℝ), Limit (fun (n: ℕ) ↦ 1/(n + a)) 0 := by
 
 /- ### Completeness = SeqCompleteness ### -/
 
+/- Any convergent net in a metric space is Cauchy -/
+theorem conv_implies_cauchy {D X: Type*} [DirectedSet D] [UniformSpace X] {s: D → X} (h: ∃ (x: X), Limit s x):
+  CauchyNet s := by
+    intro U Uunif
+    rcases comp_mem_uniformity_sets Uunif with ⟨V, Vunif, VoVsubU⟩
+    rcases h with ⟨x, slimitx⟩
+    rcases slimitx {y: X | (x, y) ∈ V} (by exact mem_nhds_left x Vunif) with ⟨d₁, eq1⟩
+    rcases slimitx {y: X | (y, x) ∈ V} (by exact mem_nhds_right x Vunif) with ⟨d₂, eq2⟩
+    rcases directed' d₁ d₂ with ⟨d₀, d₁led₀, d₂led₀⟩
+    use d₀
+    intro d e d₀led d₀lee
+    apply VoVsubU
+    rw [mem_compRel]
+    use x
+    constructor
+    · have:= eq2 d (le_trans d₂led₀ d₀led)
+      rw [Set.mem_setOf_eq] at this
+      assumption
+    · have:= eq1 e (le_trans d₁led₀ d₀lee)
+      rw [Set.mem_setOf_eq] at this
+      assumption
+
+/- In particular, a summable family satisfies the Cauchy condition -/
+/- A summable family satisfies the Cauchy condition in a normed space -/
+theorem summable_implies_cauchysum {I X: Type*} [AddCommMonoid X] [UniformSpace X] {f: I → X} (h: Summable f):
+  CauchySumNet f := by
+    rw [summable_iff_summablenet] at h
+    exact conv_implies_cauchy h
+
 /- Completeness in metric spaces is equivalent to the statement that every Cauchy sequence is convergent -/
 theorem Metric.complete_iff {X: Type*} [PseudoMetricSpace X]:
   CompleteSpace X ↔ ∀ (s: ℕ → X), CauchyNet s → ∃ (x: X), Limit s x := by
