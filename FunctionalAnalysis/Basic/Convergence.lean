@@ -16,31 +16,6 @@ theorem hassum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCL
     unfold HasSumNet
     simp only [limit_metric_iff, dist_eq_norm, Finset.le_eq_subset]
 
-/- Characterization of absolute summability -/
-theorem cauchysum_implies_bounded {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
-  (f: I → X):
-  CauchySumNet f → BddAbove {α: ℝ | ∃ (F: Finset I), α = ‖∑ (i ∈ F), f i‖} := by
-    sorry
-
-theorem hasabssum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
-  (f: I → X):
-  AbsSummable 𝕂 f ↔ BddAbove {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} := by
-    constructor
-    · intro fabssum
-      unfold AbsSummable HasAbsSum HasSumNet at fabssum
-      have fcauchy : CauchyNet (fun (E: Finset I) ↦ ∑ e ∈ E, ‖f e‖):= by
-        apply conv_implies_cauchy
-        exact fabssum
-      have := cauchysum_implies_bounded ℝ (fun (i: I) ↦ ‖f i‖) fcauchy
-      simp only [Real.norm_eq_abs] at this
-      sorry
-    · sorry
-
-theorem abssum_of{I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
-  (f: I → X) {t: ℝ} (h: HasAbsSum 𝕂 f t):
-  IsLUB {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} t := by
-    sorry
-
 /- Characterization of Cauchy condition for arbitrary family in a normed space -/
 lemma Finset.inter_sdiff_subset {I: Type*} (A B C: Finset I) (h: C ⊆ B): C ∩ (A \ B) = ∅ := by
   have: C ∩ (A \ B) ⊆ B ∩ (A \ B) := by
@@ -82,6 +57,142 @@ theorem cauchysum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [
           exact eq (F₂ \ F₁) (Finset.inter_sdiff_subset F₂ F₁ F₀ F₀subF₁)
         _ = ε := by
           norm_num
+
+/- Characterization of absolute summability -/
+theorem cauchysum_implies_bounded {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X):
+  CauchySumNet f → BddAbove {α: ℝ | ∃ (F: Finset I), α = ‖∑ (i ∈ F), f i‖} := by
+    intro cauchyf
+    rw [cauchysum_normed 𝕂] at cauchyf
+    rcases cauchyf 1 zero_lt_one with ⟨F₀, eq⟩
+    use 1 + ∑ i ∈ F₀, ‖f i‖
+    rw [mem_upperBounds]
+    intro α αin
+    rw [Set.mem_setOf_eq] at αin
+    rcases αin with ⟨F, αeq⟩
+    rw [αeq]
+    calc
+      ‖∑ i ∈ F, f i‖ = ‖∑ i ∈ F \ F₀, f i + ∑ i ∈ F ∩ F₀, f i‖ := by
+        apply congr_arg
+        rw [← Finset.sum_union (Finset.disjoint_sdiff_inter F F₀), Finset.sdiff_union_inter]
+      _ ≤ ‖∑ i ∈ F \ F₀, f i‖ + ‖∑ i ∈ F ∩ F₀, f i‖ := by
+        exact norm_add_le (∑ i ∈ F \ F₀, f i) (∑ i ∈ F ∩ F₀, f i)
+      _ ≤ 1 + ‖∑ i ∈ F ∩ F₀, f i‖ := by
+        apply add_le_add_right
+        apply le_of_lt
+        exact eq (F \ F₀) (Finset.inter_sdiff_subset F F₀ F₀ subset_rfl)
+      _ ≤ 1 + ∑ i ∈ F ∩ F₀, ‖f i‖ := by
+        apply add_le_add_left
+        exact norm_sum_le (F ∩ F₀) f
+      _ ≤ 1 + ∑ i ∈ F₀, ‖f i‖ := by
+        apply add_le_add_left
+        apply Finset.sum_le_sum_of_subset_of_nonneg Finset.inter_subset_right
+        intro i iinF₀ inotininter
+        exact norm_nonneg (f i)
+
+lemma sum_of_norms_eq_abs_of_sum {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X):
+    {α | ∃ F, α = ∑ i ∈ F, ‖f i‖} = {α | ∃ F, α = |∑ i ∈ F, ‖f i‖|} := by
+      ext α
+      simp only [Set.mem_setOf_eq]
+      constructor
+      · intro eq
+        rcases eq with ⟨F, αeq⟩
+        use F
+        rw [αeq]
+        apply (abs_of_nonneg _).symm
+        apply Finset.sum_nonneg
+        intro i iinF
+        exact norm_nonneg (f i)
+      · intro eq
+        rcases eq with ⟨F, αeq⟩
+        use F
+        rw [αeq]
+        apply (abs_of_nonneg _)
+        apply Finset.sum_nonneg
+        intro i iinF
+        exact norm_nonneg (f i)
+
+lemma exists_lt_LUB {s: Set ℝ} {a: ℝ} (h: IsLUB s a) (ε: ℝ) (εpos: 0 < ε) :
+  ∃ b ∈ s, a - ε < b := by
+    have := h.2
+    rw [mem_lowerBounds] at this
+    have : a - ε ∉ upperBounds s := by
+      intro aεupb
+      have := this (a - ε) aεupb
+      linarith
+    rw [mem_upperBounds] at this
+    push_neg at this
+    rcases this with ⟨b, bins, aεltb⟩
+    use b
+
+theorem hasabssum_implies_bounded {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X):
+  AbsSummable 𝕂 f →  BddAbove {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} := by
+    intro fabssum
+    have fcauchy : CauchyNet (fun (E: Finset I) ↦ ∑ e ∈ E, ‖f e‖):= by
+      apply conv_implies_cauchy
+      exact fabssum
+    have h := cauchysum_implies_bounded ℝ (fun (i: I) ↦ ‖f i‖) fcauchy
+    simp only [Real.norm_eq_abs] at h
+    rw [sum_of_norms_eq_abs_of_sum 𝕂]
+    assumption
+
+theorem bddabv_impls_LUB_eq_sum {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X):
+  BddAbove {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} → HasAbsSum 𝕂 f (sSup {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖}) := by
+    intro bddab
+    have : {α | ∃ F, α = ∑ i ∈ F, ‖f i‖}.Nonempty := by
+      use 0
+      rw [Set.mem_setOf_eq]
+      use ∅
+      rfl
+    rcases Real.exists_isLUB this bddab with ⟨α, αLUB⟩
+    have αeqssup : α = sSup {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} := by
+      exact (IsLUB.csSup_eq αLUB this).symm
+    rw [← αeqssup]
+    have αlimitf : HasAbsSum 𝕂 f α := by
+      unfold HasAbsSum
+      rw [← hassum_iff_hassumnet ,hassum_normed ℝ]
+      intro ε εpos
+      rcases exists_lt_LUB αLUB ε εpos with ⟨a, ain, αminusεlta⟩
+      rw [Set.mem_setOf_eq] at ain
+      rcases ain with ⟨F₀, aeq⟩
+      use F₀
+      intro F F₀subF
+      rw [Real.norm_eq_abs, abs_sub_lt_iff]
+      have sumleα : ∑ i ∈ F, ‖f i‖ ≤ α := by
+        have := αLUB.1
+        rw [mem_upperBounds] at this
+        exact this (∑ i ∈ F, ‖f i‖) (by use F)
+      constructor
+      · rw [sub_lt_iff_lt_add]
+        exact lt_of_le_of_lt sumleα (lt_add_of_pos_left α εpos)
+      · rw [sub_lt_iff_lt_add', ← sub_lt_iff_lt_add]
+        calc
+          α - ε < ∑ i ∈ F₀, ‖f i‖ := by
+            rw [← aeq]
+            assumption
+          _ ≤ ∑ i ∈ F, ‖f i‖ := by
+            apply Finset.sum_le_sum_of_subset_of_nonneg F₀subF
+            intro i iinF inotinF₀
+            exact norm_nonneg (f i)
+    assumption
+
+theorem abssum_eq_LUB {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X):
+  AbsSummable 𝕂 f → HasAbsSum 𝕂 f (sSup {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖}) := by
+    intro abssumf
+    exact bddabv_impls_LUB_eq_sum 𝕂 f (hasabssum_implies_bounded 𝕂 f abssumf)
+
+theorem hasabssum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X):
+  AbsSummable 𝕂 f ↔ BddAbove {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} := by
+    constructor
+    · exact hasabssum_implies_bounded 𝕂 f
+    · intro bddab
+      use sSup {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖}
+      exact bddabv_impls_LUB_eq_sum 𝕂 f bddab
 
 /- Characterization of convergence of a series in a normed space -/
 theorem conv_serie_normed {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]

@@ -247,6 +247,13 @@ theorem t2_iff_net_unique_limit {X : Type*} [TopologicalSpace X] :
       rw [limit_filter_iff_net] at *
       exact cond (DirectedSetF F) (DirectedSetF.isntDirectedSet F) (NetF F) x y limitFx limitFy
 
+theorem unique_limit {X D: Type*} [h: DirectedSet D] [TopologicalSpace X] [T: T2Space X] {s: D → X} {x y: X}:
+  Limit s y → Limit s x → x = y := by
+    rw [t2_iff_net_unique_limit_filter] at T
+    intro slimity slimitx
+    rw [limit_net_iff_filter] at *
+    exact T (FNet s) (FNet.instNeBot s) x y slimitx slimity
+
 /- A uniform space is complete iff is CompleteNet -/
 theorem complete_iff_netcomplete {X: Type*} [UniformSpace X]:
   CompleteSpace X ↔ CompleteNet X := by
