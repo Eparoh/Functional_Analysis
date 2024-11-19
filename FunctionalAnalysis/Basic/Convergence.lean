@@ -17,11 +17,22 @@ theorem hassum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCL
     simp only [limit_metric_iff, dist_eq_norm, Finset.le_eq_subset]
 
 /- Characterization of absolute summability -/
+theorem cauchysum_implies_bounded {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X):
+  CauchySumNet f → BddAbove {α: ℝ | ∃ (F: Finset I), α = ‖∑ (i ∈ F), f i‖} := by
+    sorry
+
 theorem hasabssum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
-  (f: I → X) (t: ℝ):
-  HasAbsSum 𝕂 f t ↔ BddAbove {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} := by
+  (f: I → X):
+  AbsSummable 𝕂 f ↔ BddAbove {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖} := by
     constructor
-    · intro fabssumt
+    · intro fabssum
+      unfold AbsSummable HasAbsSum HasSumNet at fabssum
+      have fcauchy : CauchyNet (fun (E: Finset I) ↦ ∑ e ∈ E, ‖f e‖):= by
+        apply conv_implies_cauchy
+        exact fabssum
+      have := cauchysum_implies_bounded ℝ (fun (i: I) ↦ ‖f i‖) fcauchy
+      simp only [Real.norm_eq_abs] at this
       sorry
     · sorry
 
