@@ -215,20 +215,6 @@ theorem conv_serie_normed {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [R
       exact eq n n₀len
 
 /- Characterization of Cauchy condition for a series in a normed space -/
-lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {M: Type*} [AddCommMonoid M] {f : ℕ → M} {n m : ℕ}
-  (h : n ≤ m) : ∑ i ∈ Finset.Iic m, f i = ∑ i ∈ Finset.Ioc n m, f i + ∑ i ∈ Finset.Iic n, f i := by
-    have inter: ∀ (m: ℕ), Finset.Iic m = Finset.Icc 0 m := by
-      intro m
-      exact rfl
-    simp only [inter]
-    induction' n with n ih
-    · simp only [Finset.Icc_self, Finset.sum_singleton]
-      rw [Finset.sum_Ioc_add_eq_sum_Icc h]
-    · rw [Finset.sum_Icc_succ_top (Nat.le_add_left 0 (n + 1)), add_comm _ (f (n + 1)), ← add_assoc,
-          Finset.sum_Ioc_add_eq_sum_Icc h]
-      simp only [Nat.Icc_succ_left]
-      exact ih (Nat.le_of_succ_le h)
-
 lemma Finset.sum_Iic_sub_Iic_eq_sum_Ioc {M: Type*} [AddCommGroup M] {f : ℕ → M} {n m : ℕ}
   (h : n ≤ m) : ∑ i ∈ Finset.Iic m, f i - ∑ i ∈ Finset.Iic n, f i = ∑ i ∈ Finset.Ioc n m, f i := by
     rw [sub_eq_iff_eq_add]
@@ -280,11 +266,22 @@ def crec_recursive (s: ℕ → ℕ): ℕ → ℕ
   | 0 => s 0
   | n + 1 => max (s (n + 1)) ((crec_recursive s n) + 1)
 
-lemma aux (s: ℕ → ℕ): ∀ (n: ℕ),  s n ≤ crec_recursive s n := by
-  sorry
+lemma le_crec_recursive (s: ℕ → ℕ): ∀ (n: ℕ),  s n ≤ crec_recursive s n := by
+  intro n
+  induction' n with n ih
+  · unfold crec_recursive
+    rfl
+  · unfold crec_recursive
+    exact Nat.le_max_left (s (n + 1)) (crec_recursive s n + 1)
 
-lemma aux' (s: ℕ → ℕ): ∀ (n: ℕ),  (crec_recursive s n) < crec_recursive s (n + 1) := by
-  sorry
+lemma crec_recursive_incr (s: ℕ → ℕ): ∀ (n: ℕ),  (crec_recursive s n) < crec_recursive s (n + 1) := by
+  intro n
+  dsimp only [crec_recursive]
+  calc
+    crec_recursive s n < (crec_recursive s n) + 1 := by
+      exact lt_add_one (crec_recursive s n)
+    _ ≤ s (n + 1) ⊔ (crec_recursive s n + 1) := by
+      exact Nat.le_max_right (s (n + 1)) (crec_recursive s n + 1)
 
 theorem complete_series_normed {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup X] [NormedSpace 𝕂 X]:
   CompleteSpace X ↔ ∀ (f: ℕ → X), conv_abs_serie 𝕂 f → conv_serie f := by
@@ -293,32 +290,13 @@ theorem complete_series_normed {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup
     · intro absimpconv
       rw [Metric.complete_iff]
       intro s scauchy
-      have cauchycond : ∀ (k: ℕ), ∃ (n₀: ℕ), ∀ (n m : ℕ), (n₀ ≤ n → n₀ ≤ m → ‖s n - s m‖ < 1/(2^k)) := by
-        intro k
-        rw [Net.cauchy_metric_iff] at scauchy
-        have := scauchy (1/(2^k)) (by norm_num)
-        simp only [dist_eq_norm] at this
-        exact this
-      let F': ℕ → ℕ := fun k ↦ if h: ∃ (n₀: ℕ), ∀ (n m : ℕ), (n₀ ≤ n → n₀ ≤ m → ‖s n - s m‖ < 1/(2^k)) then Classical.choose h else 0
-      let F: ℕ → ℕ := crec_recursive F'
-      have : ∀ (k: ℕ), ‖s (F (k +1)) - s (F k)‖ < 1/(2^k) := by
-        intro k
-        have F'keqchoose : ∀ (k: ℕ), F' k = Classical.choose (cauchycond k) := by
-          intro k
-          dsimp only [F']
-          rw [dif_pos (cauchycond k)]
-        have := Classical.choose_spec (cauchycond k)
-        rw [← F'keqchoose k] at this
-        have leF : F' k ≤ F (k + 1) := by
-          calc
-            F' k ≤ F k := by
-              exact aux F' k
-            _ ≤ F (k + 1) := by
-              have:= aux' F' k
-              rw [lt_iff_le_and_ne] at this
-              exact this.1
-        exact this (F (k + 1)) (F k) leF (aux F' k)
+      let F: ℕ → ℕ := seqfromnet s (fun (k: ℕ) ↦ 1/(2^k))
       let y: ℕ → X := fun n ↦ s (F (n + 1)) - s (F n)
+      have : ∀ (k: ℕ), ‖y k‖ < 1/(2^k) := by
+        intro k
+        rw [← dist_eq_norm, dist_comm]
+        exact seqfromnet_cond s (fun (k: ℕ) ↦ 1/(2^k)) (by norm_num) scauchy k (F k) (F (k + 1)) (by rfl)
+          (seqfromnet_incr s (fun (k: ℕ) ↦ 1/(2^k)) (by norm_num) scauchy (by linarith))
       have yconvabs : conv_abs_serie 𝕂 y := by
         sorry
       have yconv := absimpconv y yconvabs

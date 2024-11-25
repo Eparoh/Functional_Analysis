@@ -81,6 +81,78 @@ lemma cauchy_metric_iff {X D: Type*} [DirectedSet D] [PseudoMetricSpace X] (s: D
       intro d e d₀led d₀lee
       exact eq (eq' d e d₀led d₀lee)
 
+lemma cauchy_metric_iff' {X: Type*}[PseudoMetricSpace X] (s: ℕ → X):
+  CauchyNet s ↔ ∀ (ε: ℝ), (0 < ε → ∃ (n₀: ℕ), (∀ (n m: ℕ), n₀ ≤ n → n ≤ m → dist (s n) (s m) < ε)) := by
+    rw [cauchy_metric_iff]
+    constructor
+    · intro cond ε εpos
+      rcases cond ε εpos with ⟨n₀, eq⟩
+      use n₀
+      intro n m n₀len nlem
+      exact eq n m n₀len (le_trans n₀len nlem)
+    · intro cond ε εpos
+      rcases cond ε εpos with ⟨n₀, eq⟩
+      use n₀
+      intro n m n₀len n₀lem
+      by_cases h: n ≤ m
+      · exact eq n m n₀len h
+      · rw [Nat.not_le] at h
+        rw [dist_comm]
+        exact eq m n n₀lem (le_of_lt h)
+
+/- ### Some properties ### -/
+
+/- Any convergent net in a metric space is Cauchy -/
+theorem conv_implies_cauchy {D X: Type*} [DirectedSet D] [UniformSpace X] {s: D → X} (h: ∃ (x: X), Limit s x):
+  CauchyNet s := by
+    intro U Uunif
+    rcases comp_mem_uniformity_sets Uunif with ⟨V, Vunif, VoVsubU⟩
+    rcases h with ⟨x, slimitx⟩
+    rcases slimitx {y: X | (x, y) ∈ V} (by exact mem_nhds_left x Vunif) with ⟨d₁, eq1⟩
+    rcases slimitx {y: X | (y, x) ∈ V} (by exact mem_nhds_right x Vunif) with ⟨d₂, eq2⟩
+    rcases directed' d₁ d₂ with ⟨d₀, d₁led₀, d₂led₀⟩
+    use d₀
+    intro d e d₀led d₀lee
+    apply VoVsubU
+    rw [mem_compRel]
+    use x
+    constructor
+    · have:= eq2 d (le_trans d₂led₀ d₀led)
+      rw [Set.mem_setOf_eq] at this
+      assumption
+    · have:= eq1 e (le_trans d₁led₀ d₀lee)
+      rw [Set.mem_setOf_eq] at this
+      assumption
+
+/- In particular, a summable family satisfies the Cauchy condition -/
+/- A summable family satisfies the Cauchy condition in a normed space -/
+theorem summable_implies_cauchysum {I X: Type*} [AddCommMonoid X] [UniformSpace X] {f: I → X} (h: Summable f):
+  CauchySumNet f := by
+    rw [summable_iff_summablenet] at h
+    exact conv_implies_cauchy h
+
+/- Any Cauchy sequence in a metric space is bounded -/
+theorem cauchy_imp_bounded {X: Type*} [PseudoMetricSpace X] {s: ℕ → X}:
+  CauchyNet s → Bornology.IsBounded (range s) := by
+    intro cauchys
+    rw [Metric.isBounded_iff]
+    rw [cauchy_metric_iff] at cauchys
+    rcases cauchys 1 Real.zero_lt_one with ⟨n₀, eq⟩
+    let A: ℕ → Set ℝ := fun (N: ℕ) ↦ {α : ℝ | ∃ (n: ℕ),(n < N  ∧ α = dist (s n) (s N))}
+    use 1
+    intro a ains b bins
+    rw [mem_range] at *
+    rcases ains with ⟨n, sneqa⟩
+    rcases bins with ⟨m, smeqb⟩
+    rw [← sneqa, ← smeqb]
+    by_cases h: n₀ ≤ n
+    · by_cases h': n₀ ≤ m
+      · apply le_of_lt
+        exact eq n m h h'
+      · rw [Nat.not_le] at h'
+        sorry
+    · sorry
+
 /- ### Constructions ### -/
 
 /- Given a Cauchy net t: D → X in a metric space X and a positive sequence s: ℕ → ℝ, we can extract
@@ -229,36 +301,49 @@ lemma limit_inv_n : ∀ (a: ℝ), Limit (fun (n: ℕ) ↦ 1/(n + a)) 0 := by
       rw [Nat.cast_le]
       exact le_trans (le_max_left n₀ n₁) maxlen
 
+/- ### Convergence criterions ### -/
+
+/- Monotone and bounded criterion -/
+
+theorem mono_bounded_implies_conv (s: ℕ → ℝ): Monotone s → BddAbove (range s) → Limit s (sSup (range s)) := by
+  sorry
+
+/- Comparation test -/
+
+lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {M: Type*} [AddCommMonoid M] {f : ℕ → M} {n m : ℕ}
+  (h : n ≤ m) : ∑ i ∈ Finset.Iic m, f i = ∑ i ∈ Finset.Ioc n m, f i + ∑ i ∈ Finset.Iic n, f i := by
+    have inter: ∀ (m: ℕ), Finset.Iic m = Finset.Icc 0 m := by
+      intro m
+      exact rfl
+    simp only [inter]
+    induction' n with n ih
+    · simp only [Finset.Icc_self, Finset.sum_singleton]
+      rw [Finset.sum_Ioc_add_eq_sum_Icc h]
+    · rw [Finset.sum_Icc_succ_top (Nat.le_add_left 0 (n + 1)), add_comm _ (f (n + 1)), ← add_assoc,
+          Finset.sum_Ioc_add_eq_sum_Icc h]
+      simp only [Nat.Icc_succ_left]
+      exact ih (Nat.le_of_succ_le h)
+
+lemma pos_serie_incr (f: ℕ → ℝ) (fpos: ∀ (n: ℕ), 0 ≤ f n):
+  Monotone (fun (N: ℕ) ↦ ∑ n ≤ N, f n) := by
+    intro N M NleM
+    simp
+    rw [Finset.sum_Iic_eq_sum_Ioc_add_Iic NleM]
+    nth_rw 1 [← zero_add (∑ n ∈ Finset.Iic N, f n)]
+    rw [add_le_add_iff_right]
+    apply Finset.sum_nonneg
+    intro i iin
+    exact fpos i
+
+theorem comparation_test (f g: ℕ → ℝ) (fpos: ∀ (n: ℕ), 0 ≤ f n):
+  (∀ (n: ℕ), f n ≤ g n) → conv_serie g → conv_serie f := by
+    intro fleg convg
+    use (sSup (range (fun N ↦ ∑ n ∈ Finset.Iic N, f n)))
+    apply mono_bounded_implies_conv
+    · exact pos_serie_incr f fpos
+    · sorry
+
 /- ### Completeness = SeqCompleteness ### -/
-
-/- Any convergent net in a metric space is Cauchy -/
-theorem conv_implies_cauchy {D X: Type*} [DirectedSet D] [UniformSpace X] {s: D → X} (h: ∃ (x: X), Limit s x):
-  CauchyNet s := by
-    intro U Uunif
-    rcases comp_mem_uniformity_sets Uunif with ⟨V, Vunif, VoVsubU⟩
-    rcases h with ⟨x, slimitx⟩
-    rcases slimitx {y: X | (x, y) ∈ V} (by exact mem_nhds_left x Vunif) with ⟨d₁, eq1⟩
-    rcases slimitx {y: X | (y, x) ∈ V} (by exact mem_nhds_right x Vunif) with ⟨d₂, eq2⟩
-    rcases directed' d₁ d₂ with ⟨d₀, d₁led₀, d₂led₀⟩
-    use d₀
-    intro d e d₀led d₀lee
-    apply VoVsubU
-    rw [mem_compRel]
-    use x
-    constructor
-    · have:= eq2 d (le_trans d₂led₀ d₀led)
-      rw [Set.mem_setOf_eq] at this
-      assumption
-    · have:= eq1 e (le_trans d₁led₀ d₀lee)
-      rw [Set.mem_setOf_eq] at this
-      assumption
-
-/- In particular, a summable family satisfies the Cauchy condition -/
-/- A summable family satisfies the Cauchy condition in a normed space -/
-theorem summable_implies_cauchysum {I X: Type*} [AddCommMonoid X] [UniformSpace X] {f: I → X} (h: Summable f):
-  CauchySumNet f := by
-    rw [summable_iff_summablenet] at h
-    exact conv_implies_cauchy h
 
 /- Completeness in metric spaces is equivalent to the statement that every Cauchy sequence is convergent -/
 theorem Metric.complete_iff {X: Type*} [PseudoMetricSpace X]:
