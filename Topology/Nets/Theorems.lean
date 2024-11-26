@@ -121,15 +121,14 @@ theorem t2_iff_net_unique_limit_filter {X : Type*} [TopologicalSpace X] :
 /- A net in a product space converges iff every coordinate converges -/
 theorem prod_limit  {X ι D: Type*} {π : ι → Type*} [DirectedSet D] [TopologicalSpace X] [T : (i : ι) → TopologicalSpace (π i)]
   (s: D → (i : ι) → π i) (x: (i : ι) → π i) : Limit s x ↔ ∀ (i: ι), Limit (fun (d: D) ↦ s d i) (x i) := by
-    constructor
-    · intro slimitx i
-      rw [limit_net_iff_filter, ← tendsto_id'] at *
-      rw [tendsto_pi_nhds] at slimitx
-      exact slimitx i
-    · intro scomplimit
-      simp only [limit_net_iff_filter, ← tendsto_id'] at *
-      rw [tendsto_pi_nhds]
-      assumption
+    simp only [limit_net_iff_filter, ← tendsto_id']
+    exact tendsto_pi_nhds
+
+theorem prod_limit'  {X Y D: Type u_1} [h: DirectedSet D] [TopologicalSpace X] [TopologicalSpace Y]
+  (s: D → X × Y) (x: X × Y) : Limit s x ↔ Limit (fun (d: D) ↦ (s d).1) x.1 ∧ Limit (fun (d: D) ↦ (s d).2) x.2 := by
+    rw [limit_net_iff_filter, limit_net_iff_filter, limit_net_iff_filter, ← tendsto_id', ← tendsto_id', ← tendsto_id']
+    exact Prod.tendsto_iff id x
+
 
 /- An element x of X is in the closure of A iff there exists a net s: D → X such that it is contained in A and
    converges to x. -/

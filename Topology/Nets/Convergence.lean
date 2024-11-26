@@ -1,4 +1,5 @@
 import Topology.Nets.Theorems
+import Mathlib.Analysis.SpecialFunctions.Log.Basic
 
 set_option trace.Meta.Tactic.simp false
 
@@ -235,16 +236,36 @@ theorem cauchy_imp_bounded {X: Type*} [PseudoMetricSpace X] {s: ℕ → X}:
           _ < a + dist (s n₀) x + 1 := by
             linarith
 
-/- Sum of convergent sequences is convergent -/
-theorem sum_conv {D X: Type*} [DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [h: TopologicalAddGroup X]
+/- Limit of constant net -/
+theorem limit_cte {X D: Type*} [DirectedSet D] [TopologicalSpace X] (x: X): Limit (fun (_: D) ↦ x) x := by
+  intro U Unhds
+  use default' D
+  intro d defled
+  exact mem_of_mem_nhds Unhds
+
+/- Sum of convergent nets is convergent -/
+theorem sum_conv {D X: Type u_1} [h': DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [h: TopologicalAddGroup X]
   {s t: D → X} {x y: X}: Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) + (t d)) (x + y) := by
     intro slimitx tlimity
     have := (continuous_iff_continuousAt.mp h.continuous_add (x, y))
     rw [continuous_iff_image_of_net_converges] at this
     let S: D → X × X := fun (d: D) ↦ (s d, t d)
-    sorry
+    have Slimitxy: Limit S (x,y) := by
+      rw [prod_limit']
+      exact And.intro slimitx tlimity
+    exact this D h' S Slimitxy
 
-
+/- Product of scalar and convergent nets is convergent -/
+theorem prod_num_conv {D X 𝕂: Type u_1} [RCLike 𝕂] [h': DirectedSet D] [AddCommGroup X] [Module 𝕂 X] [TopologicalSpace X]
+  [h: ContinuousSMul 𝕂 X] {s: D → X} {x: X} (a: 𝕂): Limit s x → Limit (fun (d: D) ↦ a • (s d)) (a • x) := by
+    intro slimitx
+    have := (continuous_iff_continuousAt.mp h.continuous_smul (a, x))
+    rw [continuous_iff_image_of_net_converges] at this
+    let S: D → 𝕂 × X := fun (d: D) ↦ (a, s d)
+    have Slimitax: Limit S (a,x) := by
+      rw [prod_limit']
+      apply And.intro (limit_cte a) slimitx
+    exact this D h' S Slimitax
 
 /- ### Constructions ### -/
 
@@ -394,8 +415,50 @@ theorem limit_inv_n : ∀ (a: ℝ), Limit (fun (n: ℕ) ↦ 1/(n + a)) 0 := by
       rw [Nat.cast_le]
       exact le_trans (le_max_left n₀ n₁) maxlen
 
-theorem geo_sum {r: ℝ} (rltone: r < 1) (moneltr: -1 < r): conv_serie_to (fun (n: ℕ) ↦ r^n) (1-r)⁻¹ := by
+theorem limit_lessone_zero {𝕂: Type*} [RCLike 𝕂] {r: 𝕂} (rltone: ‖r‖ < 1): Limit (fun (n: ℕ) ↦ r^n) 0 := by
+  rw [limit_metric_iff]
+  intro ε εpos
+  simp only [dist_eq_norm, sub_zero, norm_pow]
+  by_cases h: 1 < ε
+  · use 0
+    intro d zled
+    calc
+      ‖r‖^d ≤ 1 := by
+        exact pow_le_one₀ (norm_nonneg r) (le_of_lt rltone)
+      _ < ε := by
+        exact h
+  · push_neg at h
+    use Nat.floor ((Real.log ε)/(Real.log ‖r‖)) + 1
+    intro n len
+    by_cases h': r = 0
+    · rw [h', norm_zero, zero_pow]
+      · exact εpos
+      · linarith
+    · rw [← Real.log_lt_log_iff (pow_pos (norm_pos_iff.mpr h') n) εpos, Real.log_pow, ← div_lt_iff_of_neg]
+      · calc
+          Real.log ε / Real.log ‖r‖ < ⌊Real.log ε / Real.log ‖r‖⌋₊ + 1 := by
+            exact Nat.lt_floor_add_one (Real.log ε / Real.log ‖r‖)
+          _ ≤ n := by
+            norm_cast
+      · rw [Real.log_neg_iff]
+        · exact rltone
+        · exact norm_pos_iff'.mpr h'
+
+lemma finite_geo_sum {𝕂: Type*} [RCLike 𝕂] (r: 𝕂): (fun N ↦ ∑ n ∈ Finset.Iic N, (fun n ↦ r ^ n) n) = (fun N ↦ (r^(N + 1) - 1)/(r - 1)) := by
   sorry
+
+theorem geo_sum {r: ℂ} (rltone: ‖r‖ < 1): conv_serie_to (fun (n: ℕ) ↦ r^n) (1-r)⁻¹ := by
+  unfold conv_serie_to
+  rw [finite_geo_sum r]
+  have := prod_num_conv (r/(r-1)) (limit_lessone_zero rltone)
+  simp only [smul_eq_mul, div_mul_eq_mul_div, ← pow_succ', mul_zero] at this
+  have sol := sum_conv this (limit_cte (-1/(r-1)))
+  simp only [div_add_div_same, zero_add] at sol
+  have : (-1/(r - 1)) = (1 - r)⁻¹ := by
+    rw [inv_eq_one_div, neg_eq_neg_one_mul, mul_comm, ← div_mul_eq_mul_div, ← one_div_neg_one_eq_neg_one,
+        div_mul_div_comm, mul_one, sub_mul, one_mul, mul_comm, ← neg_eq_neg_one_mul, neg_sub_neg]
+  simp only [this] at sol
+  exact sol
 
 /- ### Convergence criterions ### -/
 
