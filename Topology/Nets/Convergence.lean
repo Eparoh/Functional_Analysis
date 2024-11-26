@@ -131,27 +131,120 @@ theorem summable_implies_cauchysum {I X: Type*} [AddCommMonoid X] [UniformSpace 
     rw [summable_iff_summablenet] at h
     exact conv_implies_cauchy h
 
+/- Characterization of bounded set in metric space -/
+lemma Metric.isBounded_iff' {X: Type*} [PseudoMetricSpace X] {s: Set X}:
+  Bornology.IsBounded s ↔ ∀ (x: X), ∃ (r: ℝ), 0 < r ∧ s ⊆ Metric.ball x r := by
+    rw [Metric.isBounded_iff]
+    constructor
+    · intro bounded x
+      rcases bounded with ⟨C, eq⟩
+      by_cases sempty: s = ∅
+      · use 1
+        rw [sempty]
+        exact And.intro Real.zero_lt_one (empty_subset (Metric.ball x 1))
+      · rw [← Ne, ← nonempty_iff_ne_empty, nonempty_def] at sempty
+        rcases sempty with ⟨x₀, x₀ins⟩
+        use C + dist x x₀ + 1
+        constructor
+        · have Clez: 0 ≤ C := by
+            have := eq x₀ins x₀ins
+            rw [dist_self] at this
+            assumption
+          have: 0 ≤ dist x x₀ := by
+            exact dist_nonneg
+          linarith [Clez, this]
+        · intro y yins
+          rw [Metric.mem_ball]
+          calc
+            dist y x ≤ dist y x₀ + dist x x₀ := by
+              rw [dist_comm x x₀]
+              exact dist_triangle y x₀ x
+            _ ≤ C + dist x x₀ := by
+              exact add_le_add_right (eq yins x₀ins) (dist x x₀)
+            _ < C + dist x x₀ + 1 := by
+              linarith
+    · intro bounded
+      by_cases sempty: s = ∅
+      · use 1
+        intro x xins
+        rw [sempty] at xins
+        contradiction
+      · rw [← Ne, ← nonempty_iff_ne_empty, nonempty_def] at sempty
+        rcases sempty with ⟨x₀, x₀ins⟩
+        rcases bounded x₀ with ⟨r, rpos, ssubball⟩
+        use 2*r
+        intro x xins y yins
+        calc
+          dist x y ≤ dist x x₀ + dist x₀ y := by
+            exact dist_triangle x x₀ y
+          _ ≤ r + dist x₀ y := by
+            apply add_le_add_right
+            exact le_of_lt (ssubball xins)
+          _ ≤ r + r := by
+            apply add_le_add_left
+            rw [dist_comm]
+            exact le_of_lt (ssubball yins)
+          _ = 2*r := by
+            linarith
+
 /- Any Cauchy sequence in a metric space is bounded -/
 theorem cauchy_imp_bounded {X: Type*} [PseudoMetricSpace X] {s: ℕ → X}:
   CauchyNet s → Bornology.IsBounded (range s) := by
     intro cauchys
-    rw [Metric.isBounded_iff]
-    rw [cauchy_metric_iff] at cauchys
+    rw [Metric.isBounded_iff']
+    intro x
+    rw [cauchy_metric_iff'] at cauchys
     rcases cauchys 1 Real.zero_lt_one with ⟨n₀, eq⟩
-    let A: ℕ → Set ℝ := fun (N: ℕ) ↦ {α : ℝ | ∃ (n: ℕ),(n < N  ∧ α = dist (s n) (s N))}
-    use 1
-    intro a ains b bins
-    rw [mem_range] at *
-    rcases ains with ⟨n, sneqa⟩
-    rcases bins with ⟨m, smeqb⟩
-    rw [← sneqa, ← smeqb]
-    by_cases h: n₀ ≤ n
-    · by_cases h': n₀ ≤ m
-      · apply le_of_lt
-        exact eq n m h h'
-      · rw [Nat.not_le] at h'
-        sorry
-    · sorry
+    let A : Set ℝ := {y | ∃ x, ∃ (_ : x ∈ Iio n₀), dist (s x) (s n₀) = y} ∪ {1}
+    have Afin: Finite A := by
+      rw [finite_coe_iff, finite_union]
+      constructor
+      · exact Set.Finite.dependent_image (finite_Iio n₀) (fun (n: ℕ) (h: n ∈ Iio n₀) ↦ dist (s n) (s n₀))
+      · exact finite_singleton 1
+    have Anempty: Nonempty A := by
+      use 1
+      exact mem_union_right {y | ∃ x, ∃ (_ : x ∈ Iio n₀), dist (s x) (s n₀) = y} rfl
+    rcases Finite.exists_max (fun (a: A) ↦ a) with ⟨a, amax⟩
+    use a + dist (s n₀) x + 1
+    constructor
+    · have : 0 ≤ dist (s n₀) x := by
+        exact dist_nonneg
+      have onelea : (1: ℝ) ≤ a := by
+        exact amax ⟨1, mem_union_right {y | ∃ x, ∃ (_ : x ∈ Iio n₀), dist (s x) (s n₀) = y} rfl⟩
+      linarith [onelea, this]
+    · intro y yinranges
+      rw [mem_range] at yinranges
+      rcases yinranges with ⟨n, sneqy⟩
+      rw [← sneqy, Metric.mem_ball]
+      calc
+          dist (s n) x ≤ dist (s n) (s n₀) + dist (s n₀) x := by
+            exact dist_triangle (s n) (s n₀) x
+          _ ≤ a + dist (s n₀) x := by
+            apply add_le_add_right
+            by_cases h: n₀ ≤ n
+            · have : dist (s n) (s n₀) ≤ 1 := by
+                rw [dist_comm]
+                exact le_of_lt (eq n₀ n (le_refl n₀) h)
+              exact le_trans this (amax ⟨1, mem_union_right {y | ∃ x, ∃ (_ : x ∈ Iio n₀), dist (s x) (s n₀) = y} rfl⟩)
+            · have : dist (s n) (s n₀) ∈ A := by
+                push_neg at h
+                rw [mem_union, Set.mem_setOf_eq]
+                apply Or.inl
+                use n, mem_Iio.mpr h
+              exact amax ⟨dist (s n) (s n₀), this⟩
+          _ < a + dist (s n₀) x + 1 := by
+            linarith
+
+/- Sum of convergent sequences is convergent -/
+theorem sum_conv {D X: Type*} [DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [h: TopologicalAddGroup X]
+  {s t: D → X} {x y: X}: Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) + (t d)) (x + y) := by
+    intro slimitx tlimity
+    have := (continuous_iff_continuousAt.mp h.continuous_add (x, y))
+    rw [continuous_iff_image_of_net_converges] at this
+    let S: D → X × X := fun (d: D) ↦ (s d, t d)
+    sorry
+
+
 
 /- ### Constructions ### -/
 
@@ -272,7 +365,7 @@ lemma limit_of_seqfromnet_limit [PseudoMetricSpace X] [DirectedSet D] (t: D → 
 
 /- ### Common limits of sequences and series ### -/
 
-lemma limit_inv_n : ∀ (a: ℝ), Limit (fun (n: ℕ) ↦ 1/(n + a)) 0 := by
+theorem limit_inv_n : ∀ (a: ℝ), Limit (fun (n: ℕ) ↦ 1/(n + a)) 0 := by
   intro a
   rw [limit_metric_iff]
   intro ε εpos
@@ -301,12 +394,52 @@ lemma limit_inv_n : ∀ (a: ℝ), Limit (fun (n: ℕ) ↦ 1/(n + a)) 0 := by
       rw [Nat.cast_le]
       exact le_trans (le_max_left n₀ n₁) maxlen
 
+theorem geo_sum {r: ℝ} (rltone: r < 1) (moneltr: -1 < r): conv_serie_to (fun (n: ℕ) ↦ r^n) (1-r)⁻¹ := by
+  sorry
+
 /- ### Convergence criterions ### -/
 
 /- Monotone and bounded criterion -/
 
+lemma exists_lt_LUB {s: Set ℝ} {a: ℝ} (h: IsLUB s a) (ε: ℝ) (εpos: 0 < ε) :
+  ∃ b ∈ s, a - ε < b := by
+    have := h.2
+    rw [mem_lowerBounds] at this
+    have : a - ε ∉ upperBounds s := by
+      intro aεupb
+      have := this (a - ε) aεupb
+      linarith
+    rw [mem_upperBounds] at this
+    push_neg at this
+    rcases this with ⟨b, bins, aεltb⟩
+    use b
+
 theorem mono_bounded_implies_conv (s: ℕ → ℝ): Monotone s → BddAbove (range s) → Limit s (sSup (range s)) := by
-  sorry
+  intro smono sbdd
+  have: (range s).Nonempty := by
+    use s 0
+    rw [mem_range]
+    use 0
+  rcases Real.exists_isLUB this sbdd with ⟨α, αLUB⟩
+  rw [IsLUB.csSup_eq αLUB this, limit_metric_iff]
+  intro ε εpos
+  rcases exists_lt_LUB αLUB ε εpos with ⟨a, ains, αεlta⟩
+  rw [mem_range] at ains
+  rcases ains with ⟨n₀, sn₀eqa⟩
+  use n₀
+  intro n n₀len
+  rw [dist_eq_norm, Real.norm_eq_abs, abs_sub_lt_iff]
+  constructor
+  · rw [sub_lt_iff_lt_add']
+    have : s n ≤ α := by
+      have := αLUB.1
+      rw [mem_upperBounds] at this
+      exact this (s n) (by rw [mem_range]; use n)
+    exact lt_of_le_of_lt this (by linarith)
+  · rw [sub_lt_comm]
+    apply lt_of_lt_of_le αεlta
+    rw [← sn₀eqa]
+    exact smono n₀len
 
 /- Comparation test -/
 
@@ -341,7 +474,27 @@ theorem comparation_test (f g: ℕ → ℝ) (fpos: ∀ (n: ℕ), 0 ≤ f n):
     use (sSup (range (fun N ↦ ∑ n ∈ Finset.Iic N, f n)))
     apply mono_bounded_implies_conv
     · exact pos_serie_incr f fpos
-    · sorry
+    · have : Bornology.IsBounded (range fun N ↦ ∑ n ∈ Finset.Iic N, g n) := by
+        exact cauchy_imp_bounded (conv_implies_cauchy convg)
+      rw [Metric.isBounded_iff'] at this
+      rcases this 0 with ⟨r, rpos, rangebdd⟩
+      use r
+      rw [mem_upperBounds]
+      intro x xinrange
+      rw [mem_range] at xinrange
+      rcases xinrange with ⟨N, sumNeqx⟩
+      rw [← sumNeqx]
+      calc
+          ∑ n ∈ Finset.Iic N, f n ≤ ∑ n ∈ Finset.Iic N, g n := by
+            apply Finset.sum_le_sum
+            intro i iin
+            exact fleg i
+          _ ≤ r := by
+            have : ∑ n ∈ Finset.Iic N, g n ∈ (range fun N ↦ ∑ n ∈ Finset.Iic N, g n) := by
+              use N
+            have := rangebdd this
+            rw [Metric.mem_ball, dist_eq_norm, Real.norm_eq_abs, sub_zero] at this
+            exact le_of_lt (lt_of_abs_lt this)
 
 /- ### Completeness = SeqCompleteness ### -/
 
