@@ -244,7 +244,7 @@ theorem limit_cte {X D: Type*} [DirectedSet D] [TopologicalSpace X] (x: X): Limi
   exact mem_of_mem_nhds Unhds
 
 /- Sum of convergent nets is convergent -/
-theorem sum_conv {D X: Type u_1} [h': DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [h: TopologicalAddGroup X]
+theorem sum_conv {X D: Type u_1} [h': DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [h: TopologicalAddGroup X]
   {s t: D → X} {x y: X}: Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) + (t d)) (x + y) := by
     intro slimitx tlimity
     have := (continuous_iff_continuousAt.mp h.continuous_add (x, y))
