@@ -7,7 +7,7 @@ namespace Net
 /- ### Basic results ### -/
 
 /- Subsequences are subnets -/
-theorem subsequence_is_subnet {X: Type} (s s' : ℕ → X) :
+theorem subsequence_is_subnet {X: Type*} (s s' : ℕ → X) :
   (∃ (i: ℕ → ℕ), StrictMono i ∧ s' = s ∘ i) → Subnet s s' := by
   intro h
   unfold Subnet
@@ -19,6 +19,14 @@ theorem subsequence_is_subnet {X: Type} (s s' : ℕ → X) :
     intro e dlee
     exact le_trans dlee (StrictMono.id_le stricmono_i e)
   · assumption
+
+theorem shift_subsequence {X: Type*} (s : ℕ → X) (k: ℕ): Subnet s (fun (n: ℕ) ↦ s (n + k)) := by
+  apply subsequence_is_subnet
+  use fun (n: ℕ) ↦ n + k
+  constructor
+  · intro n m nltm
+    exact Nat.add_lt_add_right nltm k
+  · rfl
 
 /- If a net s converges to a point x in X, then every subnet of s converges to x. -/
 theorem subnet_same_limit {X D E: Type*} [TopologicalSpace X] [DirectedSet D] [DirectedSet E]
@@ -37,6 +45,11 @@ theorem subnet_same_limit {X D E: Type*} [TopologicalSpace X] [DirectedSet D] [D
     have := eq_e e' elee'
     have := eq_d (i e') this
     exact this
+
+theorem shift_subsequence_conv {X: Type*} [TopologicalSpace X] (s : ℕ → X) (k: ℕ) {x: X}:
+  Limit s x → Limit (fun (n: ℕ) ↦ s (n + k)) x := by
+    intro slimitx
+    exact subnet_same_limit (shift_subsequence s k) slimitx
 
 /- If a point x in X is a cluster point of a net s' and s' is a subnet of another net s, then x is also a cluster point of s. -/
 theorem subnet_clusterpoint_implies_net {X D E: Type*} [TopologicalSpace X] [DirectedSet D] [DirectedSet E]

@@ -243,29 +243,34 @@ theorem limit_cte {X D: Type*} [DirectedSet D] [TopologicalSpace X] (x: X): Limi
   intro d defled
   exact mem_of_mem_nhds Unhds
 
-/- Sum of convergent nets is convergent -/
-theorem sum_conv {X D: Type u_1} [h': DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [h: TopologicalAddGroup X]
-  {s t: D → X} {x y: X}: Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) + (t d)) (x + y) := by
-    intro slimitx tlimity
-    have := (continuous_iff_continuousAt.mp h.continuous_add (x, y))
-    rw [continuous_iff_image_of_net_converges] at this
-    let S: D → X × X := fun (d: D) ↦ (s d, t d)
+/- Image of continuous function of convergent nets converges -/
+theorem fun_conv {X Y Z D: Type*} [DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [TopologicalSpace Y] [TopologicalSpace Z]
+  {s: D → X} {t: D → Y} {x: X} {y: Y} {f: X × Y → Z}:
+  ContinuousAt f (x,y) → Limit s x → Limit t y → Limit (fun (d: D) ↦ f ((s d), (t d))) (f (x, y)) := by
+    intro contf slimitx tlimity
+    let S: D → X × Y := fun (d: D) ↦ (s d, t d)
     have Slimitxy: Limit S (x,y) := by
       rw [prod_limit']
       exact And.intro slimitx tlimity
-    exact this D h' S Slimitxy
+    exact apply_fun_net f (x,y) contf Slimitxy
+
+/- Sum of convergent nets is convergent -/
+theorem sum_conv {X D: Type*} [DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [h: TopologicalAddGroup X]
+  {s t: D → X} {x y: X}: Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) + (t d)) (x + y) := by
+    exact fun_conv (continuous_iff_continuousAt.mp h.continuous_add (x, y))
+
+/- Difference of convergent nets is convergent -/
+theorem sub_conv {X D: Type*} [DirectedSet D] [AddCommGroup X] [TopologicalSpace X] [h: TopologicalAddGroup X]
+  {s t: D → X} {x y: X}: Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) - (t d)) (x - y) := by
+    have := (@TopologicalAddGroup.to_continuousSub X _ _ h).continuous_sub
+    exact fun_conv (continuous_iff_continuousAt.mp this (x, y))
 
 /- Product of scalar and convergent nets is convergent -/
-theorem prod_num_conv {D X 𝕂: Type u_1} [RCLike 𝕂] [h': DirectedSet D] [AddCommGroup X] [Module 𝕂 X] [TopologicalSpace X]
-  [h: ContinuousSMul 𝕂 X] {s: D → X} {x: X} (a: 𝕂): Limit s x → Limit (fun (d: D) ↦ a • (s d)) (a • x) := by
+theorem prod_num_conv {X D 𝕂: Type*} [DirectedSet D] [RCLike 𝕂] [AddCommGroup X] [Module 𝕂 X] [TopologicalSpace X]
+  [h: ContinuousSMul 𝕂 X] {x: X} {s: D → X} (a: 𝕂):
+  Limit s x → Limit (fun (d: D) ↦ a • (s d)) (a • x) := by
     intro slimitx
-    have := (continuous_iff_continuousAt.mp h.continuous_smul (a, x))
-    rw [continuous_iff_image_of_net_converges] at this
-    let S: D → 𝕂 × X := fun (d: D) ↦ (a, s d)
-    have Slimitax: Limit S (a,x) := by
-      rw [prod_limit']
-      apply And.intro (limit_cte a) slimitx
-    exact this D h' S Slimitax
+    exact fun_conv (continuous_iff_continuousAt.mp h.continuous_smul (a, x)) (limit_cte a) slimitx
 
 /- ### Constructions ### -/
 
@@ -306,14 +311,14 @@ lemma seqfromnet_cond {X D: Type*} [PseudoMetricSpace X] [DirectedSet D] (t: D �
         rw [neqm1]
         exact (Classical.choose_spec cond).2 d e led lee
 
-/- The defined sequence is (strictly) increasing -/
+/- The defined sequence is increasing -/
 lemma seqfromnet_incr' {X D: Type*} [PseudoMetricSpace X] [DirectedSet D] (t: D → X) (s: ℕ → ℝ) (spos: ∀ (n: ℕ), 0 < s n)
   (h: CauchyNet t):
     ∀ (n: ℕ), seqfromnet t s n ≤ seqfromnet t s (n + 1) := by
       intro n
       rw [cauchy_metric_iff] at h
       have cond : ∃ d₀, seqfromnet t s n ≤ d₀ ∧ ∀ (d e : D), d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s (n + 1) := by
-        rcases h (s (n + 1)) (spos (n + 1))  with ⟨d₁, eq⟩
+        rcases h (s (n + 1)) (spos (n + 1)) with ⟨d₁, eq⟩
         rcases directed' (seqfromnet t s n) d₁ with ⟨d₀, seqmled₀, d₁led₀⟩
         use d₀
         constructor
@@ -444,21 +449,68 @@ theorem limit_lessone_zero {𝕂: Type*} [RCLike 𝕂] {r: 𝕂} (rltone: ‖r�
         · exact rltone
         · exact norm_pos_iff'.mpr h'
 
-lemma finite_geo_sum {𝕂: Type*} [RCLike 𝕂] (r: 𝕂): (fun N ↦ ∑ n ∈ Finset.Iic N, (fun n ↦ r ^ n) n) = (fun N ↦ (r^(N + 1) - 1)/(r - 1)) := by
-  sorry
+lemma Finset.sum_Iic_zero {X: Type*} [AddCommMonoid X] (f: ℕ → X): ∑ n ≤ 0, f n = f 0 := by
+  have : Finset.Iic 0 = {0} := by
+    rfl
+  rw [this]
+  exact Finset.sum_singleton f 0
 
-theorem geo_sum {r: ℂ} (rltone: ‖r‖ < 1): conv_serie_to (fun (n: ℕ) ↦ r^n) (1-r)⁻¹ := by
+lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {M: Type*} [AddCommMonoid M] {f : ℕ → M} {n m : ℕ}
+  (h : n ≤ m) : ∑ i ∈ Finset.Iic m, f i = ∑ i ∈ Finset.Ioc n m, f i + ∑ i ∈ Finset.Iic n, f i := by
+    have inter: ∀ (m: ℕ), Finset.Iic m = Finset.Icc 0 m := by
+      intro m
+      exact rfl
+    simp only [inter]
+    induction' n with n ih
+    · simp only [Finset.Icc_self, Finset.sum_singleton]
+      rw [Finset.sum_Ioc_add_eq_sum_Icc h]
+    · rw [Finset.sum_Icc_succ_top (Nat.le_add_left 0 (n + 1)), add_comm _ (f (n + 1)), ← add_assoc,
+          Finset.sum_Ioc_add_eq_sum_Icc h]
+      simp only [Nat.Icc_succ_left]
+      exact ih (Nat.le_of_succ_le h)
+
+lemma finite_geo_sum {𝕂: Type*} [RCLike 𝕂] {r: 𝕂} (rneone: r ≠ 1): (fun N ↦ ∑ n ∈ Finset.Iic N, (fun n ↦ r ^ n) n) = (fun N ↦ (r^(N + 1) - 1)/(r - 1)) := by
+  ext N
+  induction' N with N ih
+  · rw [Finset.sum_Iic_zero, pow_zero, zero_add, pow_one, div_self (sub_ne_zero_of_ne rneone)]
+  · rw [Finset.sum_Iic_eq_sum_Ioc_add_Iic (Nat.le_add_right N 1), Nat.Ioc_succ_singleton, Finset.sum_singleton, ih]
+    nth_rw 1 [← one_mul (r ^ (N + 1)), ← div_self (sub_ne_zero_of_ne rneone)]
+    rw [← mul_div_right_comm, div_add_div_same, sub_mul, add_sub, sub_add, one_mul, sub_self, sub_zero, ← pow_succ']
+
+theorem geo_sum {𝕂: Type} [RCLike 𝕂] {r: 𝕂} (rltone: ‖r‖ < 1): conv_serie_to (fun (n: ℕ) ↦ r^n) (1-r)⁻¹ := by
   unfold conv_serie_to
-  rw [finite_geo_sum r]
+  have: r ≠ 1 := by
+    by_contra reqone
+    rw [reqone, norm_one] at rltone
+    linarith
+  rw [finite_geo_sum this]
   have := prod_num_conv (r/(r-1)) (limit_lessone_zero rltone)
   simp only [smul_eq_mul, div_mul_eq_mul_div, ← pow_succ', mul_zero] at this
   have sol := sum_conv this (limit_cte (-1/(r-1)))
-  simp only [div_add_div_same, zero_add] at sol
+  simp only [div_add_div_same, zero_add, Mathlib.Tactic.RingNF.add_neg] at sol
   have : (-1/(r - 1)) = (1 - r)⁻¹ := by
     rw [inv_eq_one_div, neg_eq_neg_one_mul, mul_comm, ← div_mul_eq_mul_div, ← one_div_neg_one_eq_neg_one,
         div_mul_div_comm, mul_one, sub_mul, one_mul, mul_comm, ← neg_eq_neg_one_mul, neg_sub_neg]
   simp only [this] at sol
   exact sol
+
+theorem geo_sum_inv {a: ℝ} (onelta: 1 < a): conv_serie_to (fun (n: ℕ) ↦ 1/(a^n)) (a/(a-1)) := by
+  have: (fun (n: ℕ) ↦ 1/(a^n)) = (fun (n: ℕ) ↦ (1/a)^n) := by
+    ext n
+    norm_num
+  rw[this]
+  have rr: ‖1/a‖ < 1 := by
+    rw [Real.norm_eq_abs]
+    have : 1 < |a| := by
+      exact lt_of_lt_of_le onelta (le_abs_self a)
+    rw [← mul_lt_mul_right (lt_trans zero_lt_one this), abs_one_div, one_mul, one_div_mul_cancel]
+    · assumption
+    · linarith
+  have : (1 - 1 / a)⁻¹ = a/(a-1) := by
+    rw [one_sub_div, inv_div]
+    linarith
+  rw [← this]
+  exact geo_sum rr
 
 /- ### Convergence criterions ### -/
 
@@ -505,21 +557,6 @@ theorem mono_bounded_implies_conv (s: ℕ → ℝ): Monotone s → BddAbove (ran
     exact smono n₀len
 
 /- Comparation test -/
-
-lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {M: Type*} [AddCommMonoid M] {f : ℕ → M} {n m : ℕ}
-  (h : n ≤ m) : ∑ i ∈ Finset.Iic m, f i = ∑ i ∈ Finset.Ioc n m, f i + ∑ i ∈ Finset.Iic n, f i := by
-    have inter: ∀ (m: ℕ), Finset.Iic m = Finset.Icc 0 m := by
-      intro m
-      exact rfl
-    simp only [inter]
-    induction' n with n ih
-    · simp only [Finset.Icc_self, Finset.sum_singleton]
-      rw [Finset.sum_Ioc_add_eq_sum_Icc h]
-    · rw [Finset.sum_Icc_succ_top (Nat.le_add_left 0 (n + 1)), add_comm _ (f (n + 1)), ← add_assoc,
-          Finset.sum_Ioc_add_eq_sum_Icc h]
-      simp only [Nat.Icc_succ_left]
-      exact ih (Nat.le_of_succ_le h)
-
 lemma pos_serie_incr (f: ℕ → ℝ) (fpos: ∀ (n: ℕ), 0 ≤ f n):
   Monotone (fun (N: ℕ) ↦ ∑ n ≤ N, f n) := by
     intro N M NleM
@@ -558,6 +595,112 @@ theorem comparation_test (f g: ℕ → ℝ) (fpos: ∀ (n: ℕ), 0 ≤ f n):
             have := rangebdd this
             rw [Metric.mem_ball, dist_eq_norm, Real.norm_eq_abs, sub_zero] at this
             exact le_of_lt (lt_of_abs_lt this)
+
+theorem comparation_test_abs {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup X] [NormedSpace 𝕂 X] {f: ℕ → X} (g: ℕ → ℝ):
+  (∀ (n: ℕ), ‖f n‖ ≤ g n) → conv_serie g → conv_abs_serie 𝕂 f := by
+    intro fleg convserieg
+    have: conv_serie (fun n ↦ ‖f n‖) := by
+      apply comparation_test (fun n ↦ ‖f n‖) g _ fleg convserieg
+      intro n
+      exact norm_nonneg (f n)
+    rcases this with ⟨t, fconvseriet⟩
+    use t
+    exact fconvseriet
+
+theorem comparation_test_abs_geo {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup X] [NormedSpace 𝕂 X] (f: ℕ → X) {a: ℝ}
+  (onelta: 1 < a): (∀ (n: ℕ), ‖f n‖ ≤ 1 / (a^n)) → conv_abs_serie 𝕂 f := by
+    intro cond
+    apply comparation_test_abs (fun (n: ℕ) ↦ 1/(a^n))
+    · assumption
+    · use a/(a-1)
+      exact geo_sum_inv onelta
+
+/- Telescopic series -/
+lemma Finset.Icc_union {m n k: ℕ} (mlek: m ≤ k) (klen: k ≤ n) :
+  Finset.Icc m n = Finset.Icc m k ∪ Finset.Icc (k + 1) n := by
+    ext x
+    rw [Finset.mem_union, Finset.mem_Icc, Finset.mem_Icc, Finset.mem_Icc]
+    by_cases xlek: x ≤ k
+    · constructor
+      · intro xin
+        left
+        exact And.intro xin.1 xlek
+      · intro xin
+        rcases xin with h | h
+        · exact And.intro h.1 (le_trans h.2 klen)
+        · exact And.intro (le_trans (le_trans mlek (Nat.le_succ k)) h.1) h.2
+    · push_neg at xlek
+      constructor
+      · intro xin
+        right
+        exact And.intro xlek xin.2
+      · intro xin
+        rcases xin with h | h
+        · linarith
+        · exact And.intro (le_trans (le_trans mlek (Nat.le_succ k)) h.1) h.2
+
+lemma Finset.Icc_disjoint {m n p q: ℕ} (nltp: n < p):
+  Disjoint (Finset.Icc m n) (Finset.Icc p q) := by
+    rw [Finset.disjoint_left]
+    intro x xinmn
+    rw [Finset.mem_Icc] at *
+    push_neg
+    intro plex
+    linarith
+
+lemma Finset.sum_succ {M: Type*} [AddCommGroup M] {f : ℕ → M} {N : ℕ} (m: ℕ):
+  ∑ x ∈ Finset.Iic N, f (x + m) = ∑ x ∈ Finset.Icc m (N + m), f (x) := by
+    induction' N with N ih
+    · rw [Finset.sum_Iic_zero, zero_add, Finset.Icc_self, Finset.sum_singleton]
+    · rw [Finset.sum_Iic_eq_sum_Ioc_add_Iic (Nat.le_add_right N 1), Nat.Ioc_succ_singleton, Finset.sum_singleton, ih]
+      have union: Finset.Icc m (N + 1 + m) = Finset.Icc (N + 1 + m) (N + 1 + m) ∪ Finset.Icc m (N + m) := by
+        rw [add_comm, ← add_assoc, add_comm m N, Finset.union_comm]
+        exact Finset.Icc_union (Nat.le_add_left m N) (Nat.le_succ (N + m))
+      have disj: Disjoint (Finset.Icc (N + 1 + m) (N + 1 + m)) (Finset.Icc m (N + m)) := by
+        rw [disjoint_comm]
+        apply Finset.Icc_disjoint
+        linarith
+      rw [union, Finset.sum_union disj, add_right_cancel_iff, Finset.Icc_self, Finset.sum_singleton]
+
+lemma Finset.sum_Icc_sub_Icc {M: Type*} [AddCommGroup M] {f : ℕ → M} {m n k : ℕ} (mlek: m ≤ k)
+  (klen : k ≤ n) : ∑ i ∈ Finset.Icc m n, f i - ∑ i ∈ Finset.Icc m k, f i = ∑ i ∈ Finset.Ioc k n, f i := by
+  rw [Finset.Icc_union mlek klen, Finset.sum_union (Finset.Icc_disjoint (lt_add_one k)),
+      add_comm, ← add_sub, sub_self, add_zero]
+  have : Finset.Icc (k + 1) n = Finset.Ioc k n := by
+    exact Nat.Icc_succ_left k n
+  rw [this]
+
+lemma Finset.sum_Iic_telescopic {M: Type*} [AddCommGroup M] {f : ℕ → M} {N : ℕ}:
+  ∑ x ∈ Finset.Iic N, (f (x + 1) - f x) = f (N + 1) - f 0 := by
+    by_cases h: 1 ≤ N
+    · rw [Finset.sum_sub_distrib, Finset.sum_succ, Finset.sum_Iic_eq_sum_Ioc_add_Iic (Nat.zero_le N),Finset.sum_Iic_zero,
+        sub_add_eq_sub_sub, ← Nat.Icc_succ_left, Finset.sum_Icc_sub_Icc h (Nat.le_succ N), Nat.Ioc_succ_singleton,
+        Finset.sum_singleton]
+    · push_neg at h
+      rw [Nat.lt_one_iff] at h
+      rw [h, Finset.sum_Iic_zero]
+
+theorem telescopic_conv_to {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] {f g: ℕ → X}
+  (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) {x: X} (limitg: Limit g x): conv_serie_to f (x - g 0) := by
+    unfold conv_serie_to
+    simp only [tlsc, Finset.sum_Iic_telescopic]
+    apply sub_conv
+    · exact shift_subsequence_conv g 1 limitg
+    · exact limit_cte (g 0)
+
+theorem telescopic_conv {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] {f g: ℕ → X}
+  (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) {x: X} (limitg: Limit g x): conv_serie f := by
+    use x - g 0
+    exact telescopic_conv_to tlsc limitg
+
+theorem conv_telescopic_to {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] (f g: ℕ → X)
+  (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) {x: X} (fconvx: conv_serie_to f x): Limit g (x + g 0) := by
+    sorry
+
+theorem conv_telescopic {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] (f g: ℕ → X)
+  (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) (fconv: conv_serie f): ∃ (x: X), Limit g x := by
+    sorry
+
 
 /- ### Completeness = SeqCompleteness ### -/
 

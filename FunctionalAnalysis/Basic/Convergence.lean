@@ -279,14 +279,25 @@ theorem complete_series_normed {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup
       intro s scauchy
       let F: ℕ → ℕ := seqfromnet s (fun (k: ℕ) ↦ 1/(2^k))
       let y: ℕ → X := fun n ↦ s (F (n + 1)) - s (F n)
-      have : ∀ (k: ℕ), ‖y k‖ < 1/(2^k) := by
+      have : ∀ (k: ℕ), ‖y k‖ ≤ 1/(2^k) := by
         intro k
+        apply le_of_lt
         rw [← dist_eq_norm, dist_comm]
         exact seqfromnet_cond s (fun (k: ℕ) ↦ 1/(2^k)) (by norm_num) scauchy k (F k) (F (k + 1)) (by rfl)
           (seqfromnet_incr s (fun (k: ℕ) ↦ 1/(2^k)) (by norm_num) scauchy (by linarith))
-      have yconvabs : conv_abs_serie 𝕂 y := by
-        sorry
-      have yconv := absimpconv y yconvabs
+      have yconv := absimpconv y (comparation_test_abs_geo y one_lt_two this)
+      have : ∃ (x: X), Limit (s ∘ F) x := by
+        apply conv_telescopic y (s ∘ F)
+        · intro n
+          rfl
+        · exact yconv
+      rcases this with ⟨x, sFlimitx⟩
+      use x
+      apply limit_of_seqfromnet_limit s (fun (n: ℕ) ↦ F n)
+      · sorry
+      · assumption
+      · sorry
+      · sorry
       have yeqsubseq : (fun (N: ℕ) ↦ ∑ n ≤ N, y n) = s ∘ (F ∘ (fun (n : ℕ) ↦ n + 1)) := by
         sorry
       unfold conv_serie conv_serie_to at yconv

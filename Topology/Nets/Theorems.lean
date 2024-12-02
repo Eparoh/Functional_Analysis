@@ -124,7 +124,7 @@ theorem prod_limit  {X ι D: Type*} {π : ι → Type*} [DirectedSet D] [Topolog
     simp only [limit_net_iff_filter, ← tendsto_id']
     exact tendsto_pi_nhds
 
-theorem prod_limit'  {X Y D: Type u_1} [h: DirectedSet D] [TopologicalSpace X] [TopologicalSpace Y]
+theorem prod_limit'  {X Y D: Type*} [h: DirectedSet D] [TopologicalSpace X] [TopologicalSpace Y]
   (s: D → X × Y) (x: X × Y) : Limit s x ↔ Limit (fun (d: D) ↦ (s d).1) x.1 ∧ Limit (fun (d: D) ↦ (s d).2) x.2 := by
     rw [limit_net_iff_filter, limit_net_iff_filter, limit_net_iff_filter, ← tendsto_id', ← tendsto_id', ← tendsto_id']
     exact Prod.tendsto_iff id x
@@ -211,19 +211,24 @@ theorem compact_iff_net_has_convergent_subnet {X : Type*} [TopologicalSpace X] (
     rw [compact_iff_net_has_accumulationpoint, this]
 
 /- A function f: X → Y is continuous at x iff for every net s: D → X we have that the net f ∘ s: D → Y converges to f x. -/
+theorem apply_fun_net {X Y D: Type*} [DirectedSet D] [TopologicalSpace X] [TopologicalSpace Y] (f: X → Y) (x : X) {s: D → X}:
+  ContinuousAt f x → Limit s x → Limit (f ∘ s) (f x) := by
+    intro fcontatx limitsx
+    unfold ContinuousAt at fcontatx
+    rw [Filter.tendsto_def] at fcontatx
+    rw [limit_net_iff_filter]
+    intro V Vnhds
+    simp only [FNet, Filter.mem_mk, Set.mem_setOf_eq]
+    have := limitsx (f ⁻¹' V) (fcontatx V Vnhds)
+    simp only [mem_preimage] at this
+    simp only [comp_apply]
+    assumption
+
 theorem continuous_iff_image_of_net_converges {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] (f: X → Y) (x : X):
   ContinuousAt f x ↔ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X), Limit s x → Limit (f ∘ s) (f x) := by
     constructor
-    · intro fcontatx D h s limitsx
-      unfold ContinuousAt at fcontatx
-      rw [Filter.tendsto_def] at fcontatx
-      rw [limit_net_iff_filter]
-      intro V Vnhds
-      simp only [FNet, Filter.mem_mk, Set.mem_setOf_eq]
-      have := limitsx (f ⁻¹' V) (fcontatx V Vnhds)
-      simp only [mem_preimage] at this
-      simp only [comp_apply]
-      assumption
+    · intro fcontatx D Ddirected s slimitx
+      exact apply_fun_net f x fcontatx slimitx
     · intro cond
       unfold ContinuousAt
       rw [Filter.tendsto_def]
