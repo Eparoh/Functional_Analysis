@@ -293,17 +293,9 @@ theorem complete_series_normed {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup
         · exact yconv
       rcases this with ⟨x, sFlimitx⟩
       use x
-      apply limit_of_seqfromnet_limit s (fun (n: ℕ) ↦ F n)
-      · sorry
+      apply limit_of_seqfromnet_limit s (fun (k: ℕ) ↦ 1 / 2 ^ k)
+      · intro n
+        norm_num
       · assumption
-      · sorry
-      · sorry
-      have yeqsubseq : (fun (N: ℕ) ↦ ∑ n ≤ N, y n) = s ∘ (F ∘ (fun (n : ℕ) ↦ n + 1)) := by
-        sorry
-      unfold conv_serie conv_serie_to at yconv
-      simp only [yeqsubseq] at yconv
-      have lemafuera : (∃ (f: ℕ → ℕ), StrictMono f ∧ ∃ (x: X), Limit (s ∘ f) x) → ∃ (x: X), Limit s x := by
-        sorry
-      have Fstricmono : StrictMono (F ∘ (fun (n : ℕ) ↦ n + 1)) := by
-        sorry
-      exact lemafuera (by use ((F ∘ fun n ↦ n + 1)))
+      · exact limit_lessone_zero_inv (one_lt_two)
+      · exact sFlimitx

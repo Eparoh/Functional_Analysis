@@ -449,6 +449,20 @@ theorem limit_lessone_zero {𝕂: Type*} [RCLike 𝕂] {r: 𝕂} (rltone: ‖r�
         · exact rltone
         · exact norm_pos_iff'.mpr h'
 
+theorem limit_lessone_zero_inv {a: ℝ} (onelta: 1 < a): Limit (fun (n: ℕ) ↦ 1/(a^n)) 0 := by
+  have: (fun (n: ℕ) ↦ 1/(a^n)) = (fun (n: ℕ) ↦ (1/a)^n) := by
+    ext n
+    norm_num
+  rw [this]
+  have: ‖1/a‖ < 1 := by
+    rw [Real.norm_eq_abs]
+    have : 1 < |a| := by
+      exact lt_of_lt_of_le onelta (le_abs_self a)
+    rw [← mul_lt_mul_right (lt_trans zero_lt_one this), abs_one_div, one_mul, one_div_mul_cancel]
+    · assumption
+    · linarith
+  exact limit_lessone_zero this
+
 lemma Finset.sum_Iic_zero {X: Type*} [AddCommMonoid X] (f: ℕ → X): ∑ n ≤ 0, f n = f 0 := by
   have : Finset.Iic 0 = {0} := by
     rfl
@@ -685,7 +699,7 @@ theorem telescopic_conv_to {X: Type*} [AddCommGroup X] [TopologicalSpace X] [Top
     unfold conv_serie_to
     simp only [tlsc, Finset.sum_Iic_telescopic]
     apply sub_conv
-    · exact shift_subsequence_conv g 1 limitg
+    · exact (shift_subsequence_conv g 1).mp limitg
     · exact limit_cte (g 0)
 
 theorem telescopic_conv {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] {f g: ℕ → X}
@@ -693,9 +707,18 @@ theorem telescopic_conv {X: Type*} [AddCommGroup X] [TopologicalSpace X] [Topolo
     use x - g 0
     exact telescopic_conv_to tlsc limitg
 
-theorem conv_telescopic_to {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] (f g: ℕ → X)
+theorem conv_telescopic_to {X: Type*} [AddCommGroup X] [TopologicalSpace X] [T2Space X] [TopologicalAddGroup X] (f g: ℕ → X)
   (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) {x: X} (fconvx: conv_serie_to f x): Limit g (x + g 0) := by
-    sorry
+    unfold conv_serie_to at fconvx
+    simp only [tlsc, Finset.sum_Iic_telescopic] at fconvx
+    rw [shift_subsequence_conv g 1]
+    have : (fun n ↦ g (n + 1)) = (fun N ↦ g (N + 1) - g 0) + ((fun N ↦ g 0)) := by
+      ext n
+      rw [Pi.add_apply, sub_add, sub_self, sub_zero]
+    rw [this]
+    apply sum_conv
+    · exact fconvx
+    · exact limit_cte (g 0)
 
 theorem conv_telescopic {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] (f g: ℕ → X)
   (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) (fconv: conv_serie f): ∃ (x: X), Limit g x := by

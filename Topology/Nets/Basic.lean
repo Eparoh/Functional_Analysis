@@ -2,6 +2,8 @@ import Topology.Nets.Defs
 
 open Set Filter Topology Classical Function DirectedSet
 
+set_option trace.Meta.Tactic.simp true
+
 namespace Net
 
 /- ### Basic results ### -/
@@ -47,9 +49,19 @@ theorem subnet_same_limit {X D E: Type*} [TopologicalSpace X] [DirectedSet D] [D
     exact this
 
 theorem shift_subsequence_conv {X: Type*} [TopologicalSpace X] (s : ℕ → X) (k: ℕ) {x: X}:
-  Limit s x → Limit (fun (n: ℕ) ↦ s (n + k)) x := by
-    intro slimitx
-    exact subnet_same_limit (shift_subsequence s k) slimitx
+  Limit s x ↔ Limit (fun (n: ℕ) ↦ s (n + k)) x := by
+    constructor
+    · intro slimitx
+      exact subnet_same_limit (shift_subsequence s k) slimitx
+    · intro slimitx
+      intro U Unhds
+      rcases slimitx U Unhds with ⟨d₀, eq⟩
+      use d₀ + k
+      intro d d₀kled
+      have:= eq (d - k) (Nat.le_sub_of_add_le d₀kled)
+      dsimp at this
+      rw [← tsub_tsub_assoc (le_of_add_le_right d₀kled) (le_refl k), Nat.sub_self, Nat.sub_zero] at this
+      assumption
 
 /- If a point x in X is a cluster point of a net s' and s' is a subnet of another net s, then x is also a cluster point of s. -/
 theorem subnet_clusterpoint_implies_net {X D E: Type*} [TopologicalSpace X] [DirectedSet D] [DirectedSet E]
