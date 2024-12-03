@@ -58,6 +58,19 @@ theorem cauchysum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [
         _ = ε := by
           norm_num
 
+theorem cauchysum_iff_summable {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X) [CompleteSpace X]: SummableNet f ↔ CauchySumNet f := by
+    rw [← summable_iff_summablenet, cauchysum_iff_cauchyseqsum, summable_iff_cauchySeq_finset]
+
+lemma abssumable_iff_summable_abs {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X): AbsSummable 𝕂 f ↔ SummableNet (fun (i: I) ↦ ‖f i‖) := by
+    rfl
+
+theorem cauchyabssum_iff_abssummable {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: I → X) [CompleteSpace X]: AbsSummable 𝕂 f ↔ CauchySumNet (fun (i: I) ↦ ‖f i‖) := by
+    rw [abssumable_iff_summable_abs]
+    exact cauchysum_iff_summable ℝ (fun (i: I) ↦ ‖f i‖)
+
 /- Characterization of absolute summability -/
 theorem cauchysum_implies_bounded {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
   (f: I → X):
@@ -207,6 +220,10 @@ lemma Finset.sum_Iic_sub_Iic_eq_sum_Ioc {M: Type*} [AddCommGroup M] {f : ℕ →
     rw [sub_eq_iff_eq_add]
     exact Finset.sum_Iic_eq_sum_Ioc_add_Iic h
 
+lemma cauchynet_to_cauchyserie {X: Type*} [AddCommMonoid X] [UniformSpace X] (f: ℕ → X):
+  CauchySerie f ↔ CauchyNet (fun (N: ℕ) ↦ ∑ n ≤ N, f n) := by
+    rfl
+
 theorem cauchy_serie_normed {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
   (f: ℕ → X):
   CauchySerie f ↔ ∀ ε, 0 < ε → (∃ (n₀: ℕ), ∀ (n m: ℕ), (n₀ ≤ n → n ≤ m → ‖(∑ i ∈ Finset.Ioc n m, f i)‖ < ε)) := by
@@ -236,44 +253,51 @@ theorem cauchy_serie_normed {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) 
         rw [Finset.sum_Iic_sub_Iic_eq_sum_Ioc mlen]
         exact eq m n n₀lem mlen
 
-theorem abs_conv_implies_summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
-  (f: ℕ → X): conv_abs_serie 𝕂 f → Summable f := by
-    intro fconvabs
-    rcases fconvabs with ⟨t, fconvabst⟩
-    unfold conv_abs_serie_to at fconvabst
-    simp only [conv_serie_normed ℝ, Real.norm_eq_abs] at fconvabst
-    rw [summable_iff_summablenet]
-    sorry
+theorem convserie_iff_cauchyserie {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [h: CompleteSpace X] (f: ℕ → X): conv_serie f ↔ CauchySerie f := by
+    unfold conv_serie conv_serie_to
+    constructor
+    · intro convf
+      exact conv_implies_cauchy convf
+    · intro cauchyf
+      apply Metric.complete_iff.mp h
+      rw [← cauchynet_to_cauchyserie]
+      assumption
 
-/- ### Constructions ### -/
+theorem convabsserie_iff_cauchyabsserie {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X): conv_abs_serie 𝕂 f ↔ CauchySerie (fun (n: ℕ) ↦ ‖f n‖) := by
+    unfold conv_abs_serie conv_abs_serie_to conv_serie_to
+    constructor
+    · intro convabsf
+      exact conv_implies_cauchy convabsf
+    · intro cauchyabsf
+      rw [cauchynet_to_cauchyserie] at cauchyabsf
+      apply Metric.complete_iff.mp Real.instCompleteSpace
+      assumption
 
 /- ### Characterization of completeness in term of absolute convergence -/
-
-def crec_recursive (s: ℕ → ℕ): ℕ → ℕ
-  | 0 => s 0
-  | n + 1 => max (s (n + 1)) ((crec_recursive s n) + 1)
-
-lemma le_crec_recursive (s: ℕ → ℕ): ∀ (n: ℕ),  s n ≤ crec_recursive s n := by
-  intro n
-  induction' n with n ih
-  · unfold crec_recursive
-    rfl
-  · unfold crec_recursive
-    exact Nat.le_max_left (s (n + 1)) (crec_recursive s n + 1)
-
-lemma crec_recursive_incr (s: ℕ → ℕ): ∀ (n: ℕ),  (crec_recursive s n) < crec_recursive s (n + 1) := by
-  intro n
-  dsimp only [crec_recursive]
-  calc
-    crec_recursive s n < (crec_recursive s n) + 1 := by
-      exact lt_add_one (crec_recursive s n)
-    _ ≤ s (n + 1) ⊔ (crec_recursive s n + 1) := by
-      exact Nat.le_max_right (s (n + 1)) (crec_recursive s n + 1)
 
 theorem complete_series_normed {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup X] [NormedSpace 𝕂 X]:
   CompleteSpace X ↔ ∀ (f: ℕ → X), conv_abs_serie 𝕂 f → conv_serie f := by
     constructor
-    · sorry
+    · intro completeX f fabsconv
+      rw [convserie_iff_cauchyserie 𝕂, cauchy_serie_normed 𝕂]
+      rw [convabsserie_iff_cauchyabsserie 𝕂, cauchy_serie_normed ℝ] at fabsconv
+      intro ε εpos
+      rcases fabsconv ε εpos with ⟨n₀, eq⟩
+      use n₀
+      intro n m n₀len nlem
+      calc
+        ‖∑ i ∈ Finset.Ioc n m, f i‖ ≤ ∑ i ∈ Finset.Ioc n m, ‖f i‖ := by
+          exact norm_sum_le (Finset.Ioc n m) f
+        _ = |∑ i ∈ Finset.Ioc n m, ‖f i‖| := by
+          have: ∀ i ∈ Finset.Ioc n m, 0 ≤ ‖f i‖ := by
+            intro i iin
+            exact norm_nonneg (f i)
+          exact Eq.symm (Finset.abs_sum_of_nonneg this)
+        _ < ε := by
+          rw [← Real.norm_eq_abs]
+          exact eq n m n₀len nlem
     · intro absimpconv
       rw [Metric.complete_iff]
       intro s scauchy
@@ -299,3 +323,61 @@ theorem complete_series_normed {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup
       · assumption
       · exact limit_lessone_zero_inv (one_lt_two)
       · exact sFlimitx
+
+theorem abssum_implies_sum {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: I → X): AbsSummable 𝕂 f → Summable f := by
+    rw [cauchyabssum_iff_abssummable, summable_iff_summablenet, cauchysum_iff_summable 𝕂]
+    intro cauchysum
+    rw [cauchysum_normed 𝕂]
+    rw [cauchysum_normed ℝ] at cauchysum
+    intro ε εpos
+    rcases cauchysum ε εpos with ⟨F₀, eq⟩
+    simp only [Real.norm_of_nonneg (Finset.sum_nonneg (fun i x ↦ norm_nonneg (f i)))] at eq
+    use F₀
+    intro F interem
+    calc
+      ‖∑ i ∈ F, f i‖ ≤ ∑ i ∈ F, ‖f i‖ := by
+        exact norm_sum_le F f
+      _ < ε := by
+        exact eq F interem
+
+theorem abs_conv_implies_summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X): conv_abs_serie 𝕂 f → Summable f := by
+    intro fconvabs
+    apply abssum_implies_sum 𝕂
+    rw [cauchyabssum_iff_abssummable, cauchysum_normed ℝ]
+    rw [convabsserie_iff_cauchyabsserie, cauchy_serie_normed ℝ] at fconvabs
+    intro ε εpos
+    rcases fconvabs ε εpos with ⟨n₀, eq⟩
+    use Finset.Icc 0 n₀
+    intro F Fneint
+    simp only [Real.norm_of_nonneg (Finset.sum_nonneg (fun i x ↦ norm_nonneg (f i)))] at *
+    by_cases h: F.Nonempty
+    · calc
+        ∑ i ∈ F, ‖f i‖ ≤ ∑ i ∈ Finset.Ioc n₀ (Finset.max' F h), ‖f i‖ := by
+          apply Finset.sum_le_sum_of_subset_of_nonneg
+          · intro n ninF
+            rw [Finset.mem_Ioc]
+            constructor
+            · by_contra! nlen₀
+              have: n ∈ Finset.Icc 0 n₀ ∩ F := by
+                rw [Finset.mem_inter, Finset.mem_Icc]
+                exact And.intro (And.intro (Nat.zero_le n) nlen₀) ninF
+              sorry
+            · exact Finset.le_max' F n ninF
+          · intro i _ _
+            exact norm_nonneg (f i)
+        _ < ε := by
+          have: n₀ < F.max' h := by
+            have: F.max' h ∉ Finset.Icc 0 n₀ := by
+              by_contra h'
+              have : F.max' h ∈ Finset.Icc 0 n₀ ∩ F := by
+                exact Finset.mem_inter_of_mem h' (Finset.max'_mem F h)
+              sorry
+            rw [Finset.mem_Icc] at this
+            push_neg at this
+            exact this (zero_le (F.max' h))
+          exact eq n₀ (F.max' h) (le_refl n₀) (le_of_lt this)
+    · rw [Finset.not_nonempty_iff_eq_empty] at h
+      rw [h, Finset.sum_empty]
+      exact εpos

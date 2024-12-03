@@ -35,6 +35,38 @@ theorem summable_iff_summablenet {I X: Type*}  [AddCommMonoid X] [TopologicalSpa
     unfold Summable SummableNet
     simp only [hassum_iff_hassumnet]
 
+/- ### CauchySumable = CauchySeq ### -/
+theorem cauchysum_iff_cauchyseqsum {I X: Type*} [AddCommMonoid X] [UniformSpace X] (f: I → X):
+  CauchySumNet f ↔ CauchySeq (fun (s: Finset I) ↦ ∑ i ∈ s, f i) := by
+    unfold CauchySumNet CauchySeq
+    rw [cauchy_iff']
+    unfold CauchyNet
+    simp
+    constructor
+    · intro h
+      constructor
+      · exact map_neBot
+      · intro U Uinunif
+        rcases h U Uinunif with ⟨J₀, eq⟩
+        use {x: X | ∃ (J: Finset I), J₀ ⊆ J ∧ x = ∑ i ∈ J, f i}
+        constructor
+        · use J₀
+          intro J J₀subJ
+          rw [Set.mem_setOf_eq]
+          use J
+        · intro x xin y yin
+          rw [Set.mem_setOf_eq] at *
+          rcases xin with ⟨J₁, J₀subJ₁, xeqsum⟩
+          rcases yin with ⟨J₂, J₀subJ₂, yeqsum⟩
+          rw [xeqsum, yeqsum]
+          exact eq J₁ J₂ J₀subJ₁ J₀subJ₂
+    · intro h U Uinunif
+      rcases h.2 U Uinunif with ⟨A, eq⟩
+      rcases eq.1 with ⟨J₀, memA⟩
+      use J₀
+      intro J₁ J₂ J₀subJ₁ J₀subJ₂
+      exact eq.2 (∑ e ∈ J₁, f e) (memA J₁ J₀subJ₁) (∑ e ∈ J₂, f e) (memA J₂ J₀subJ₂)
+
 /- ### Archimedean property ### -/
 
 theorem Real_archimedean (x y : ℝ) : (0 < x) → ∃ (n : ℕ), y < n * x := by
@@ -707,7 +739,7 @@ theorem telescopic_conv {X: Type*} [AddCommGroup X] [TopologicalSpace X] [Topolo
     use x - g 0
     exact telescopic_conv_to tlsc limitg
 
-theorem conv_telescopic_to {X: Type*} [AddCommGroup X] [TopologicalSpace X] [T2Space X] [TopologicalAddGroup X] (f g: ℕ → X)
+theorem conv_telescopic_to {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] (f g: ℕ → X)
   (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) {x: X} (fconvx: conv_serie_to f x): Limit g (x + g 0) := by
     unfold conv_serie_to at fconvx
     simp only [tlsc, Finset.sum_Iic_telescopic] at fconvx
@@ -722,7 +754,9 @@ theorem conv_telescopic_to {X: Type*} [AddCommGroup X] [TopologicalSpace X] [T2S
 
 theorem conv_telescopic {X: Type*} [AddCommGroup X] [TopologicalSpace X] [TopologicalAddGroup X] (f g: ℕ → X)
   (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) (fconv: conv_serie f): ∃ (x: X), Limit g x := by
-    sorry
+    rcases fconv with ⟨x, eq⟩
+    use x + g 0
+    exact conv_telescopic_to f g tlsc eq
 
 
 /- ### Completeness = SeqCompleteness ### -/
