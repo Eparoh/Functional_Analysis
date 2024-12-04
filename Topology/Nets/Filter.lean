@@ -3,7 +3,7 @@ import Mathlib.Topology.UniformSpace.Cauchy
 
 noncomputable section
 
-open Set Filter Topology Classical Function DirectedSet
+open Set Filter Topology Function DirectedSet
 
 namespace Net
 
@@ -189,7 +189,7 @@ instance DirectedSetF.isntDirectedSet {X: Type*} (F: Filter X) [Filter.NeBot F] 
         have := Filter.univ_sets F
         contradiction
       rw [← nonempty_iff_ne_empty, nonempty_def] at this
-      exact inhabited_of_exists this
+      exact Classical.inhabited_of_exists this
     let x := @Inhabited.default X _
     have : (x, univ) ∈ DirectedSetF F := by
       simp only [DirectedSetF, Set.mem_setOf_eq]

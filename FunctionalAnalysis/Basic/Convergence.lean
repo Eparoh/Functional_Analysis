@@ -4,7 +4,7 @@ set_option trace.Meta.Tactic.simp false
 
 noncomputable section
 
-open Set Filter Topology Classical Function DirectedSet Net
+open Set Filter Topology Function DirectedSet Net
 
 /- ### Basic results ### -/
 
@@ -17,13 +17,13 @@ theorem hassum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCL
     simp only [limit_metric_iff, dist_eq_norm, Finset.le_eq_subset]
 
 /- Characterization of Cauchy condition for arbitrary family in a normed space -/
-lemma Finset.inter_sdiff_subset {I: Type*} (A B C: Finset I) (h: C ⊆ B): C ∩ (A \ B) = ∅ := by
+lemma Finset.inter_sdiff_subset {I: Type*} (A B C: Finset I) [DecidableEq I] (h: C ⊆ B): C ∩ (A \ B) = ∅ := by
   have: C ∩ (A \ B) ⊆ B ∩ (A \ B) := by
     exact inter_subset_inter h (subset_refl (A \ B))
   rw [Finset.inter_sdiff_self, subset_empty] at this
   exact this
 
-theorem cauchysum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+theorem cauchysum_normed {I X: Type*} [DecidableEq I] [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
   (f: I → X):
   CauchySumNet f ↔ ∀ ε, 0 < ε → (∃ (F₀: Finset I), ∀ (F: Finset I), (F₀ ∩ F = ∅ → ‖∑ i ∈ F, f i‖ < ε)) := by
     unfold CauchySumNet
@@ -75,6 +75,7 @@ theorem cauchyabssum_iff_abssummable {I X: Type*} [SeminormedAddCommGroup X] (�
 theorem cauchysum_implies_bounded {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
   (f: I → X):
   CauchySumNet f → BddAbove {α: ℝ | ∃ (F: Finset I), α = ‖∑ (i ∈ F), f i‖} := by
+    classical
     intro cauchyf
     rw [cauchysum_normed 𝕂] at cauchyf
     rcases cauchyf 1 zero_lt_one with ⟨F₀, eq⟩
@@ -326,6 +327,7 @@ theorem complete_series_normed {X 𝕂: Type*} [RCLike 𝕂] [NormedAddCommGroup
 
 theorem abssum_implies_sum {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
   [CompleteSpace X] (f: I → X): AbsSummable 𝕂 f → Summable f := by
+    classical
     rw [cauchyabssum_iff_abssummable, summable_iff_summablenet, cauchysum_iff_summable 𝕂]
     intro cauchysum
     rw [cauchysum_normed 𝕂]
@@ -363,7 +365,8 @@ theorem abs_conv_implies_summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: T
               have: n ∈ Finset.Icc 0 n₀ ∩ F := by
                 rw [Finset.mem_inter, Finset.mem_Icc]
                 exact And.intro (And.intro (Nat.zero_le n) nlen₀) ninF
-              sorry
+              rw [Fneint] at this
+              contradiction
             · exact Finset.le_max' F n ninF
           · intro i _ _
             exact norm_nonneg (f i)
@@ -373,7 +376,8 @@ theorem abs_conv_implies_summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: T
               by_contra h'
               have : F.max' h ∈ Finset.Icc 0 n₀ ∩ F := by
                 exact Finset.mem_inter_of_mem h' (Finset.max'_mem F h)
-              sorry
+              rw [Fneint] at this
+              contradiction
             rw [Finset.mem_Icc] at this
             push_neg at this
             exact this (zero_le (F.max' h))

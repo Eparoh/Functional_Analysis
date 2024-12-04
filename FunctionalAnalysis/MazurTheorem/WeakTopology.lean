@@ -7,7 +7,7 @@ import FunctionalAnalysis.MazurTheorem.Lemmas
 
 noncomputable section
 
-open Set Filter Topology Classical Function NormedSpace TopologicalSpace Defs Lemmas
+open Set Filter Topology Function NormedSpace TopologicalSpace Defs Lemmas
 
 set_option linter.unusedVariables false
 set_option trace.Meta.Tactic.simp false
@@ -77,6 +77,7 @@ theorem weak_basis_general {E F 𝕂: Type*} [RCLike 𝕂] [AddCommGroup E] [Mod
   (B: E →ₗ[𝕂] F →ₗ[𝕂] 𝕂): IsTopologicalBasis
   {U : Set (WeakBilin B) | ∃ (e₀ : WeakBilin B), ∃ (I : Finset F), ∃ (ε : ℝ), (0 < ε ∧
    U = {e : WeakBilin B | ∀ i ∈ I, ‖(B (e - e₀) i)‖ < ε})} := by
+    classical
     /- To see that this family forms a basis it is enough to see that every set is open and that given any e ∈ E and any open set
        U with e ∈ U, there exists an element v of the family such that e ∈ v ⊆ U. -/
     apply isTopologicalBasis_of_isOpen_of_nhds
@@ -245,6 +246,7 @@ theorem weak_compatible_normed (𝕂 X : Type*) [RCLike 𝕂] [NormedAddCommGrou
 /- FALTA COMENTAR -/
 theorem weak_compatible {E F 𝕂: Type*} [RCLike 𝕂] [AddCommGroup E] [Module 𝕂 E] [AddCommGroup F] [Module 𝕂 F]
   (B: E →ₗ[𝕂] F →ₗ[𝕂] 𝕂) : CompatibleTopology B (WeakBilin.instTopologicalSpace B) := by
+    classical
     dsimp [CompatibleTopology]
     intro g
     constructor

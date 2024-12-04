@@ -1,8 +1,8 @@
 import Topology.Nets.Defs
 
-open Set Filter Topology Classical Function DirectedSet
+open Set Filter Topology Function DirectedSet
 
-set_option trace.Meta.Tactic.simp true
+set_option trace.Meta.Tactic.simp false
 
 namespace Net
 
@@ -85,6 +85,7 @@ theorem subnet_clusterpoint_implies_net {X D E: Type*} [TopologicalSpace X] [Dir
 /- A point x is an accumulation point of a net s iff there exists a subnet that converges to x -/
 theorem clpoint_iff_exists_subnet {X D: Type*} [TopologicalSpace X] [h: DirectedSet D] (s: D → X) (x : X) :
   ClusterPoint s x ↔ ∃ (E: Type (max u_1 u_2)) (_: DirectedSet E) (s': E → X), (Subnet s s' ∧ Limit s' x) := by
+    classical
     constructor
     · intro t
       unfold ClusterPoint at t
@@ -94,7 +95,7 @@ theorem clpoint_iff_exists_subnet {X D: Type*} [TopologicalSpace X] [h: Directed
       /- Since given any neighbourhood V of x and any d of D there exists an element e of D such that
          d ≤ e and s(e) ∈ V, we'll define i(V, d) = e and the subnet s' = s ∘ i (with 𝓝 x
          ordered by ⊇), so s'(V,d) ∈ V -/
-      let i : {V | V ∈ 𝓝 x} × D → D := fun (⟨V, _⟩, d)  ↦  if h: ∃ (e: D), (d ≤ e ∧ s e ∈ V) then Classical.choose h else d
+      let i : {V | V ∈ 𝓝 x} × D → D := fun (⟨V, _⟩, d) ↦ if h: ∃ (e: D), (d ≤ e ∧ s e ∈ V) then Classical.choose h else d
       let s' : {V | V ∈ 𝓝 x} × D → X := s ∘ i
       use ({V | V ∈ 𝓝 x} × D), (@instProduct {V | V ∈ 𝓝 x} D (instNeighbourhoodLeft x) h), s'
       constructor

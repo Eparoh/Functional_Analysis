@@ -6,7 +6,7 @@ set_option trace.Meta.Tactic.simp false
 
 noncomputable section
 
-open Set Filter Topology Classical Function DirectedSet
+open Set Filter Topology Function DirectedSet
 
 namespace Net
 

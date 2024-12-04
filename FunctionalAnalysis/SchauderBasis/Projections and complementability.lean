@@ -7,9 +7,11 @@ noncomputable section
 
 set_option trace.Meta.Tactic.simp false
 
-open Set Topology Classical Function LinearMap
+open Set Topology Function LinearMap
 
 namespace Defs
+
+/- ###### ###### REVISAR QUE YA EXISTE UNA DEFINICIÓN DE COMPLEMENTACIÓN ###### ###### -/
 
 /- Definition of projection -/
 def IsProjection {X : Type*} (P: X → X): Prop := ∀ (x: X), P (P x) = P x
@@ -107,7 +109,4 @@ theorem complemented_iff_exists_topologicalcomplement (X 𝕂: Type*) [RCLike �
   (Y: Subspace 𝕂 X) (h: @IsClosed X _ Y)  : IsComplemented X 𝕂 Y ↔ ∃ (Z: Subspace 𝕂 X), TopologicalComplement X 𝕂 Y Z := by
     sorry
 
--- Equivalencia completitud con redes.
--- Equivalencia completitud en normados con sucesiones.
--- Equivalencia completitud en normados con serie abs. conv. implica conv.
--- Teoremas de la aplicación abierta y la gráfica cerrada.
+-- Teoremas de la aplicación abierta y la gráfica cerrada (creo que están).

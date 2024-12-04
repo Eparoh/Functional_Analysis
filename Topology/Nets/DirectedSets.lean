@@ -2,7 +2,7 @@ import Mathlib.Topology.Instances.Real
 
 noncomputable section
 
-open Set Filter Topology Classical Function
+open Set Filter Topology Function
 
 /- ### Class ### -/
 
@@ -19,6 +19,7 @@ theorem DirectedSet.directed' {D: Type*} [DirectedSet D] (d d': D) :
 
 /- Any finite set on a directed set has a supremum -/
 theorem DirectedSet.sup_finite_set {D : Type*} [DirectedSet D] (I : Finset D): ∃ (d: D), ∀ c ∈ I, c ≤ d := by
+  classical
   induction' I using Finset.induction_on with d I _ ih
   · simp only [Finset.not_mem_empty, false_implies, implies_true, exists_const]
   · simp only [Finset.mem_insert, forall_eq_or_imp]
@@ -136,6 +137,7 @@ def DirectedSet.instFiniteInterLeft {X F: Type*} {A: F → Set X} (K := univ) : 
       dsimp
       intro d e
       have : ∃ (u : Finset F),  d.1 ∩ e.1 = K ∩ ⋂ i ∈ u, A i := by
+        classical
         rcases d.2 with ⟨u, d_eq_int⟩
         rcases e.2 with ⟨v, e_eq_int⟩
         use u ∪ v
@@ -178,6 +180,7 @@ def DirectedSet.instFiniteInterLeft {X F: Type*} {A: F → Set X} (K := univ) : 
 instance DirectedSet.instFiniteSubsets {X: Type*}: DirectedSet (Finset X) where
   default := ∅
   directed := by
+    classical
     intro E F
     use E ∪ F
     constructor

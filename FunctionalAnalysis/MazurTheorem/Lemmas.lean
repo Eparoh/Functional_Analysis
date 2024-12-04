@@ -8,7 +8,7 @@ noncomputable section
 set_option linter.unusedVariables false
 set_option trace.Meta.Tactic.simp false
 
-open Set Topology Classical Function LinearMap Defs
+open Set Topology Function LinearMap Defs
 
 namespace Lemmas
 
@@ -16,12 +16,14 @@ namespace Lemmas
 
 /- Evaluation of a partial function if the condition is satisfied. -/
 lemma eval_pos (p : α → Prop) (f g : α → β) {a : α} (h: p a) : partial_fun p f g a = f a := by
+  classical
   rw [partial_fun, ite_eq_left_iff]
   intro npn
   contradiction
 
 /- Evaluation of a partial function if the condition is not satisfied. -/
 lemma eval_neg (p : α → Prop) (f g : α → β) {a : α} (h: ¬p a) : partial_fun p f g a = g a := by
+  classical
   rw [partial_fun, ite_eq_right_iff]
   intro npn
   contradiction
@@ -32,6 +34,7 @@ lemma eval_neg (p : α → Prop) (f g : α → β) {a : α} (h: ¬p a) : partial
           such that f = h ∘ g if, and only if, Ker g ⊆ Ker f -/
 lemma exist_comp_iff_ker_sub {E F G 𝕜: Type*} [Field 𝕜] [AddCommGroup E] [AddCommGroup F] [AddCommGroup G] [Module 𝕜 E] [Module 𝕜 F] [Module 𝕜 G]
   (f: E →ₗ[𝕜] G) (g: E →ₗ[𝕜] F) : (∃ (h: F →ₗ[𝕜] G), f = h ∘ₗ g) ↔ {e | e ∈ ker g} ⊆ {e | e ∈ ker f} := by
+    classical
     constructor
     · intro existence
       rcases existence with ⟨h, feqhg⟩
@@ -64,7 +67,7 @@ lemma exist_comp_iff_ker_sub {E F G 𝕜: Type*} [Field 𝕜] [AddCommGroup E] [
              the linearity of g, so  choose xx'inrangeg - (choose xinrangeg + choose x'inrangeg) ∈ Ker g and, by assumption,
              choose xx'inrangeg - (choose xinrangeg + choose x'inrangeg) ∈ Ker f.
              By the linearity of f we conclude as wanted. -/
-          have : choose xx'inrangeg - (choose xinrangeg + choose x'inrangeg) ∈ ker f := by
+          have : Classical.choose xx'inrangeg - (Classical.choose xinrangeg + Classical.choose x'inrangeg) ∈ ker f := by
             apply kergsubkerf
             simp [Classical.choose_spec xinrangeg, Classical.choose_spec x'inrangeg, Classical.choose_spec xx'inrangeg]
           rw [mem_ker, map_sub, map_add, sub_eq_zero] at this
@@ -83,7 +86,7 @@ lemma exist_comp_iff_ker_sub {E F G 𝕜: Type*} [Field 𝕜] [AddCommGroup E] [
              the linearity of g, so choose cxinrangeg - (c • choose xinrangeg) ∈ Ker g and, by assumption,
              choose cxinrangeg - (c • choose xinrangeg) ∈ Ker f.
              By the linearity of f we conclude as wanted. -/
-          have : choose cxinrangeg - (c • choose xinrangeg) ∈ ker f := by
+          have : Classical.choose cxinrangeg - (c • Classical.choose xinrangeg) ∈ ker f := by
             apply kergsubkerf
             simp [Classical.choose_spec xinrangeg, Classical.choose_spec cxinrangeg]
           rw [mem_ker, map_sub, map_smul, sub_eq_zero] at this
@@ -98,7 +101,7 @@ lemma exist_comp_iff_ker_sub {E F G 𝕜: Type*} [Field 𝕜] [AddCommGroup E] [
         rw [dif_pos cond] -- g (choose cond) = g e
         /- To obtain the desired result it is enough to prove that e - (choose cond) ∈ Ker f and, by assumption, it is enough
            to prove that e - (choose cond) ∈ Ker g, which is true by the selection done. -/
-        have : choose cond - e ∈ ker f := by
+        have : Classical.choose cond - e ∈ ker f := by
           apply kergsubkerf
           simp [Classical.choose_spec cond]
         rw [mem_ker, map_sub, sub_eq_zero] at this
@@ -249,6 +252,7 @@ theorem exists_ball_subset_family {ι : Type*} (X: Type*) [MetricSpace X] (I : F
 
 theorem aux_sup {ι α : Type*} [DirectedSet α] (I: Finset ι) (p: ι → α → Prop) (h: ∀ i ∈ I, ∃ (t : α), p i t)
   (h' : ∀ i ∈ I, ∀ (t s : α), t ≤ s → p i t → p i s) : ∃ (t : α), ∀ i ∈ I, p i t := by
+    classical
     let F : ι → α := fun i ↦ if q: ∃ (t : α), p i t then Classical.choose q else DirectedSet.default' α
     let T := Finset.image F I
     rcases DirectedSet.sup_finite_set T with ⟨t, tsubT⟩

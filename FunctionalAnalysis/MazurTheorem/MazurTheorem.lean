@@ -2,7 +2,7 @@ import FunctionalAnalysis.MazurTheorem.WeakTopology
 
 noncomputable section
 
-open Set Topology Classical Function NormedSpace Defs Lemmas
+open Set Topology Function NormedSpace Defs Lemmas
 
 set_option linter.unusedVariables false
 set_option trace.Meta.Tactic.simp true

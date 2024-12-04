@@ -1,7 +1,7 @@
 import Topology.Nets.DirectedSets
 import Mathlib.Analysis.RCLike.Basic
 
-open Set Filter Topology Classical Function DirectedSet
+open Set Filter Topology Function DirectedSet
 
 namespace Net
 
