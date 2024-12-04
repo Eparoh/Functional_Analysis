@@ -385,3 +385,127 @@ theorem abs_conv_implies_summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: T
     · rw [Finset.not_nonempty_iff_eq_empty] at h
       rw [h, Finset.sum_empty]
       exact εpos
+
+/- Unconditional convergence -/
+
+theorem BMCauchy_iff_ACauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : BMCauchy 𝕂 f ↔ ACauchy 𝕂 f := by
+    sorry
+
+theorem BMCauchy_of_SCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : BMCauchy 𝕂 f → SCauchy 𝕂 f := by
+    sorry
+
+theorem CauchySum_of_SCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : SCauchy 𝕂 f → CauchySumNet f := by
+    sorry
+
+theorem BMCauchy_of_CauchySum {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : CauchySumNet f → BMCauchy 𝕂 f := by
+    sorry
+
+theorem CauchySum_iff_RCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : CauchySumNet f ↔ RCauchy 𝕂 f := by
+    sorry
+
+theorem BMCauchy_iff_SCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : BMCauchy 𝕂 f ↔ SCauchy 𝕂 f := Iff.intro (BMCauchy_of_SCauchy 𝕂 f)
+    (fun a ↦ BMCauchy_of_CauchySum 𝕂 f (CauchySum_of_SCauchy 𝕂 f a))
+
+theorem BMCauchy_iff_CauchySum {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : BMCauchy 𝕂 f ↔ CauchySumNet f := Iff.intro
+    (fun a ↦ CauchySum_of_SCauchy 𝕂 f (BMCauchy_of_SCauchy 𝕂 f a))
+    (fun a ↦ BMCauchy_of_CauchySum 𝕂 f a)
+
+theorem BMCauchy_iff_RCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : BMCauchy 𝕂 f ↔ RCauchy 𝕂 f := by
+    rw [← CauchySum_iff_RCauchy 𝕂]
+    exact BMCauchy_iff_CauchySum 𝕂 f
+
+theorem ACauchy_iff_SCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : ACauchy 𝕂 f ↔ SCauchy 𝕂 f := by
+    rw [← BMCauchy_iff_ACauchy 𝕂]
+    exact BMCauchy_iff_SCauchy 𝕂 f
+
+theorem ACauchy_iff_CauchySum {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : ACauchy 𝕂 f ↔ CauchySumNet f := by
+    rw [← BMCauchy_iff_ACauchy 𝕂]
+    exact BMCauchy_iff_CauchySum 𝕂 f
+
+theorem ACauchy_iff_RCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : ACauchy 𝕂 f ↔ RCauchy 𝕂 f := by
+    rw [← BMCauchy_iff_ACauchy 𝕂]
+    exact BMCauchy_iff_RCauchy 𝕂 f
+
+theorem SCauchy_iff_CauchySum {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : SCauchy 𝕂 f ↔ CauchySumNet f := Iff.intro (CauchySum_of_SCauchy 𝕂 f)
+    (fun a ↦ BMCauchy_of_SCauchy 𝕂 f (BMCauchy_of_CauchySum 𝕂 f a))
+
+theorem SCauchy_iff_RCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  (f: ℕ → X) : SCauchy 𝕂 f ↔ RCauchy 𝕂 f := by
+    rw [← CauchySum_iff_RCauchy 𝕂]
+    exact SCauchy_iff_CauchySum 𝕂 f
+
+theorem BMSerie_iff_BMCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : BMSerie 𝕂 f ↔ BMCauchy 𝕂 f := by
+    unfold BMCauchy BMSerie
+    simp only [convserie_iff_cauchyserie 𝕂]
+
+theorem RSerie_iff_RCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : RSerie 𝕂 f ↔ RCauchy 𝕂 f := by
+    unfold RCauchy RSerie
+    simp only [convserie_iff_cauchyserie 𝕂]
+
+theorem SSerie_iff_SCauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : SSerie 𝕂 f ↔ SCauchy 𝕂 f := by
+    unfold SCauchy SSerie
+    simp only [convserie_iff_cauchyserie 𝕂]
+
+theorem ASerie_iff_ACauchy {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : ASerie 𝕂 f ↔ ACauchy 𝕂 f := by
+    unfold ACauchy ASerie
+    simp only [convserie_iff_cauchyserie 𝕂]
+
+theorem BMSerie_iff_SSerie {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : BMSerie 𝕂 f ↔ SSerie 𝕂 f := by
+    rw [BMSerie_iff_BMCauchy 𝕂, SSerie_iff_SCauchy 𝕂]
+    exact BMCauchy_iff_SCauchy 𝕂 f
+
+theorem BMSerie_iff_Summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : BMSerie 𝕂 f ↔ Summable f := by
+    rw [BMSerie_iff_BMCauchy 𝕂, summable_iff_summablenet, cauchysum_iff_summable 𝕂]
+    exact BMCauchy_iff_CauchySum 𝕂 f
+theorem BMSerie_iff_RSerie {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : BMSerie 𝕂 f ↔ RSerie 𝕂 f := by
+    rw [BMSerie_iff_BMCauchy 𝕂, RSerie_iff_RCauchy 𝕂]
+    exact BMCauchy_iff_RCauchy 𝕂 f
+
+theorem ASerie_iff_SSerie {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : ASerie 𝕂 f ↔ SSerie 𝕂 f := by
+    rw [ASerie_iff_ACauchy 𝕂, SSerie_iff_SCauchy 𝕂]
+    exact ACauchy_iff_SCauchy 𝕂 f
+
+theorem ASerie_iff_Summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : ASerie 𝕂 f ↔ Summable f := by
+    rw [ASerie_iff_ACauchy 𝕂, summable_iff_summablenet, cauchysum_iff_summable 𝕂]
+    exact ACauchy_iff_CauchySum 𝕂 f
+
+theorem ASerie_iff_RSerie {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : ASerie 𝕂 f ↔ RSerie 𝕂 f := by
+    rw [ASerie_iff_ACauchy 𝕂, RSerie_iff_RCauchy 𝕂]
+    exact ACauchy_iff_RCauchy 𝕂 f
+
+theorem SSerie_iff_Summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : SSerie 𝕂 f ↔ Summable f := by
+    rw [SSerie_iff_SCauchy 𝕂, summable_iff_summablenet, cauchysum_iff_summable 𝕂]
+    exact SCauchy_iff_CauchySum 𝕂 f
+
+theorem SSerie_iff_RSerie {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : SSerie 𝕂 f ↔ RSerie 𝕂 f := by
+    rw [SSerie_iff_SCauchy 𝕂, RSerie_iff_RCauchy 𝕂]
+    exact SCauchy_iff_RCauchy 𝕂 f
+
+theorem RSerie_iff_Summable {X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]
+  [CompleteSpace X] (f: ℕ → X) : RSerie 𝕂 f ↔ Summable f := by
+    rw [RSerie_iff_RCauchy 𝕂, summable_iff_summablenet, cauchysum_iff_summable 𝕂]
+    exact (CauchySum_iff_RCauchy 𝕂 f).symm
