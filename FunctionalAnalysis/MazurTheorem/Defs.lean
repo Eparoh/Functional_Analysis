@@ -9,18 +9,14 @@ set_option linter.unusedVariables false
 
 namespace Defs
 
-section DEF
-
-open Classical
-
 /- Definition for a function defined by pieces -/
-def partial_fun {α β: Type*} (p : α → Prop) (f g : α → β) : α → β := fun (a: α) ↦
+def partial_fun {α β: Type*} (p : α → Prop) (f g : α → β) : α → β := fun (a: α) ↦ by
+  classical
+  exact
   if p a then
     f a
   else
     g a
-
-end DEF
 
 /- Definition: Let E and F be two vector spaces over a field 𝕂, B: E × F → 𝕂 a bilinear form and S a subset of F (E).
                We say that S separates points of E (F) if given e ∈ E (f ∈ F) such that B(e, s) = 0 (B(s, f) = 0) for every s ∈ S

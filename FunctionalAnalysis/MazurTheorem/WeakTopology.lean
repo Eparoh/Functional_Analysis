@@ -345,7 +345,7 @@ theorem weak_compatible {E F 𝕂: Type*} [RCLike 𝕂] [AddCommGroup E] [Module
               constructor
               · rw [Finset.mem_image]
                 use ⟨i, iin⟩
-                exact And.intro (Finset.mem_univ ⟨i, iin⟩) (by rfl)
+                exact And.intro (@Finset.mem_univ { x // x ∈ Finset.image (fun f ↦ B.flip f) H } _ ⟨i, iin⟩) (by rfl)
               · rw [Finset.mem_image] at iin
                 dsimp [t]
                 rw [dif_pos iin]

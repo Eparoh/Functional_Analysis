@@ -240,7 +240,7 @@ theorem exists_ball_subset_family {ι : Type*} (X: Type*) [MetricSpace X] (I : F
     · exact (ht j j.2).1
     · intro i iinI
       have : Metric.ball (f i) (t j.1 j.2) ⊆ Metric.ball (f i) (t i iinI) := by
-        exact Metric.ball_subset_ball (jmin ⟨i, iinI⟩ (Finset.mem_univ ⟨i, iinI⟩))
+        exact Metric.ball_subset_ball (jmin ⟨i, iinI⟩ (@Finset.mem_univ { x // x ∈ I } _ ⟨i, iinI⟩))
       exact subset_trans this (ht i iinI).2
   · rw [Finset.nonempty_iff_ne_empty, Ne, not_not] at hI
     use 1
