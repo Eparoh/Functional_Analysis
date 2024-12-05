@@ -1,4 +1,4 @@
-import Topology.Nets.Defs
+import Topology.Nets.DirectedSet
 
 open Set Filter Topology Function DirectedSet
 
@@ -6,33 +6,40 @@ set_option trace.Meta.Tactic.simp false
 
 namespace Net
 
-/- ### Basic results ### -/
+variable {X D E F: Type*} [TopologicalSpace X] [DirectedSet D] [DirectedSet E]
 
-/- Subsequences are subnets -/
-theorem subsequence_is_subnet {X: Type*} (s s' : ℕ → X) :
-  (∃ (i: ℕ → ℕ), StrictMono i ∧ s' = s ∘ i) → Subnet s s' := by
-  intro h
-  unfold Subnet
-  rcases h with ⟨i, stricmono_i, s'eqscompi⟩
-  use i
-  constructor
-  · intro d
-    use d
-    intro e dlee
-    exact le_trans dlee (StrictMono.id_le stricmono_i e)
-  · assumption
+/- ### Definitions ### -/
 
-theorem shift_subsequence {X: Type*} (s : ℕ → X) (k: ℕ): Subnet s (fun (n: ℕ) ↦ s (n + k)) := by
-  apply subsequence_is_subnet
-  use fun (n: ℕ) ↦ n + k
-  constructor
-  · intro n m nltm
-    exact Nat.add_lt_add_right nltm k
-  · rfl
+/- A net is simply a map s: D → X from a  directed set to  topological space X. -/
+
+/- We say that a net s: D → X converges to a point x in X if for every neighborhood U of x there exists a d₀ in D such that
+   for any d in D with d₀ ≤ d, we obtain that s d ∈ U. -/
+def Limit (s : D → X) (x: X) : Prop :=
+  ∀ U ∈ 𝓝 x, ∃ (d₀ : D), ∀ (d : D), d₀ ≤ d → s d ∈ U
+
+/- We say that a point x in X is a cluster point of a net s: D → X if for every d in D and every neighborhood U of x there exists
+   an e in D such that d ≤ e and s e ∈ U. -/
+def ClusterPt (s: D → X) (x : X): Prop :=
+  ∀ (d : D), ∀ U ∈ 𝓝 x, ∃ (e : D), (d ≤ e ∧ s e ∈ U)
+
+/- We say that a net s': E → X is a subnet of a net s: D → X if there exists a cofinal map i : E → D such that s' = s ∘ i.
+   With cofinal we mean that given any d in D, there exists an e₀ in E such that for any e in E, if e₀ ≤ e then d ≤ i e. -/
+def Subnet {X: Type*} (s: D → X) (s': E → X) : Prop :=
+  ∃ (i: E → D), (∀ (d : D), ∃ (e₀ : E), ∀ (e : E), (e₀ ≤ e →  d ≤ (i e))) ∧ s' = s ∘ i
+
+/- We say that a net s: D → X on a uniform space X is Cauchy if for every U in the uniformity
+   of X thre exists some d₀ in I such that (s d, s e) ∈ U for all d₀ ≤ d, e -/
+def CauchyNet {X: Type*} [UniformSpace X] (s: D → X): Prop :=
+   ∀ U ∈ uniformity X, ∃ (d₀: D), ∀ (d e: D), (d₀ ≤ d → d₀ ≤ e → (s d, s e) ∈ U)
+
+def CompleteNet (X: Type*) [UniformSpace X]: Prop :=
+   ∀ (D: Type u_5) (_: DirectedSet D) (s : D → X), (CauchyNet s → ∃ (x: X), Limit s x)
+
+/- ### Basic results about subnets ### -/
 
 /- If a net s converges to a point x in X, then every subnet of s converges to x. -/
-theorem subnet_same_limit {X D E: Type*} [TopologicalSpace X] [DirectedSet D] [DirectedSet E]
-  {s : D → X} {s' : E → X} {x : X} : Subnet s s' → Limit s x → Limit s' x := by
+theorem subnet_same_limit {s : D → X} {s' : E → X} {x : X} :
+  Subnet s s' → Limit s x → Limit s' x := by
     intro subnet slimitx
     unfold Limit at *
     intro U U_nhds
@@ -48,7 +55,30 @@ theorem subnet_same_limit {X D E: Type*} [TopologicalSpace X] [DirectedSet D] [D
     have := eq_d (i e') this
     exact this
 
-theorem shift_subsequence_conv {X: Type*} [TopologicalSpace X] (s : ℕ → X) (k: ℕ) {x: X}:
+/- Subsequences are subnets -/
+theorem subsequence_is_subnet {X: Type*} (s s' : ℕ → X) :
+  (∃ (i: ℕ → ℕ), StrictMono i ∧ s' = s ∘ i) → Subnet s s' := by
+    intro h
+    unfold Subnet
+    rcases h with ⟨i, stricmono_i, s'eqscompi⟩
+    use i
+    constructor
+    · intro d
+      use d
+      intro e dlee
+      exact le_trans dlee (StrictMono.id_le stricmono_i e)
+    · assumption
+
+theorem shift_subsequence {X: Type*} (s : ℕ → X) (k: ℕ):
+  Subnet s (fun (n: ℕ) ↦ s (n + k)) := by
+    apply subsequence_is_subnet
+    use fun (n: ℕ) ↦ n + k
+    constructor
+    · intro n m nltm
+      exact Nat.add_lt_add_right nltm k
+    · rfl
+
+theorem shift_subsequence_conv (s : ℕ → X) (k: ℕ) {x: X}:
   Limit s x ↔ Limit (fun (n: ℕ) ↦ s (n + k)) x := by
     constructor
     · intro slimitx
@@ -63,11 +93,13 @@ theorem shift_subsequence_conv {X: Type*} [TopologicalSpace X] (s : ℕ → X) (
       rw [← tsub_tsub_assoc (le_of_add_le_right d₀kled) (le_refl k), Nat.sub_self, Nat.sub_zero] at this
       assumption
 
+/- ### Basic results about cluster points ### -/
+
 /- If a point x in X is a cluster point of a net s' and s' is a subnet of another net s, then x is also a cluster point of s. -/
-theorem subnet_clusterpoint_implies_net {X D E: Type*} [TopologicalSpace X] [DirectedSet D] [DirectedSet E]
-  {s : D → X} {s' : E → X} {x : X} : Subnet s s' → ClusterPoint s' x → ClusterPoint s x := by
+theorem subnet_clusterpoint_implies_net {s : D → X} {s' : E → X} {x : X} :
+  Subnet s s' → ClusterPt s' x → ClusterPt s x := by
     intro subnet clpoints'x
-    unfold ClusterPoint at *
+    unfold ClusterPt at *
     intro d U Unhds
     unfold Subnet at subnet
     rcases subnet with ⟨i, crec, comp⟩
@@ -83,12 +115,12 @@ theorem subnet_clusterpoint_implies_net {X D E: Type*} [TopologicalSpace X] [Dir
       assumption
 
 /- A point x is an accumulation point of a net s iff there exists a subnet that converges to x -/
-theorem clpoint_iff_exists_subnet {X D: Type*} [TopologicalSpace X] [h: DirectedSet D] (s: D → X) (x : X) :
-  ClusterPoint s x ↔ ∃ (E: Type (max u_1 u_2)) (_: DirectedSet E) (s': E → X), (Subnet s s' ∧ Limit s' x) := by
+theorem clpoint_iff_exists_subnet {D: Type*} [h: DirectedSet D] (s: D → X) (x : X) :
+  ClusterPt s x ↔ ∃ (E: Type (max u_1 u_5)) (_: DirectedSet E) (s': E → X), (Subnet s s' ∧ Limit s' x) := by
     classical
     constructor
     · intro t
-      unfold ClusterPoint at t
+      unfold ClusterPt at t
       have existence : ∀ V ∈ 𝓝 x, ∀ (d: D), ∃ (e: D), (d ≤ e ∧ s e ∈ V) := by
         intro V V_nhds d
         exact t d V V_nhds
@@ -127,7 +159,7 @@ theorem clpoint_iff_exists_subnet {X D: Type*} [TopologicalSpace X] [h: Directed
         exact le_e.1 this
     · intro t
       rcases t with ⟨E, h', s', subnet_s', limit_s'⟩
-      unfold ClusterPoint
+      unfold ClusterPt
       intro d U U_nhds
       /- As s' is a subnet of s, there exists an i: s'.D → s.D such that there exists an e₀ with the
          property that if e₀ ≤ e, then d ≤ i(e). Furthermore, as s' converges to x there exists an e₁

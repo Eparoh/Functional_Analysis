@@ -1,6 +1,5 @@
 import Topology.Nets.Theorems
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
-import Init.Classical
 
 set_option trace.Meta.Tactic.simp false
 
@@ -314,8 +313,8 @@ theorem prod_num_conv {X D 𝕂: Type*} [DirectedSet D] [RCLike 𝕂] [AddCommGr
 def seqfromnet {X D: Type*} [PseudoMetricSpace X] [DirectedSet D] (t: D → X) (s: ℕ → ℝ): ℕ → D := fun k ↦ by
   classical
   exact match k with
-  | 0 => if h: ∃ d₀, (∀ (d e : D), d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s 0) then Classical.choose h else default' D
-  | n + 1 => if h: ∃ (d₀: D), ((seqfromnet t s n) ≤ d₀ ∧ ((∀ (d e : D), d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s (n + 1)))) then Classical.choose h else default' D
+  | 0 => if h: ∃ d₀, (∀ (d e : D), d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s 0) then Classical.choose h else default
+  | n + 1 => if h: ∃ (d₀: D), ((seqfromnet t s n) ≤ d₀ ∧ ((∀ (d e : D), d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s (n + 1)))) then Classical.choose h else default
 
 /- If the net t: D → X is Cauchy, then seqfromnet satisfies what we want -/
 lemma seqfromnet_cond {X D: Type*} [PseudoMetricSpace X] [DirectedSet D] (t: D → X) (s: ℕ → ℝ) (spos: ∀ (n: ℕ), 0 < s n)

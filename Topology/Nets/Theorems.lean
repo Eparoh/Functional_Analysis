@@ -1,21 +1,13 @@
 import Topology.Nets.Filter
-import Mathlib.Topology.UniformSpace.Cauchy
 import Mathlib.Topology.Algebra.InfiniteSum.Defs
 
 set_option trace.Meta.Tactic.simp false
 
 noncomputable section
 
-open Set Filter Topology Function DirectedSet
+open Set Filter Topology Function DirectedSet Net
 
-namespace Net
-
-/- ### Classic characterizations ### -/
-
-/- In this file we stated the characterizations of closure, closed set, compact set, continuous function at a point and Hausdorff set
-   in terms of nets.
-
-   To do so, we use the equivalent results for filters and the relations between nets and filter. -/
+variable {X Y Z D: Type*} [TopologicalSpace X] [TopologicalSpace Y] [UniformSpace Z] [DirectedSet D]
 
 /- ### Missing results for filters ### -/
 
@@ -23,7 +15,7 @@ namespace Net
 
 /- An element x of X is in the closure of A iff there exists a filter F in X such that it is NeBot, A ∈ F and x is a limit
    point of F. -/
-theorem mem_closure_iff_exists_filter {X: Type*} [TopologicalSpace X] (A: Set X) (x : X) :
+theorem mem_closure_iff_exists_filter (A: Set X) (x : X) :
   x ∈ closure A ↔ ∃ (F: Filter X), F.NeBot ∧  A ∈ F ∧ F ≤ 𝓝 x := by
     constructor
     · intro xinclos
@@ -91,7 +83,7 @@ theorem mem_closure_iff_exists_filter {X: Type*} [TopologicalSpace X] (A: Set X)
       exact NeBot.nonempty_of_mem Fnebot this
 
 /- A topological space X is T2 iff every NeBot filter F in X has at most one limit point. -/
-theorem t2_iff_net_unique_limit_filter {X : Type*} [TopologicalSpace X] :
+theorem t2_iff_filter:
   T2Space X ↔ ∀ (F: Filter X) (_: Filter.NeBot F) (x y : X), F ≤ 𝓝 x → F ≤ 𝓝 y → x = y := by
     constructor
     · intro t2
@@ -116,116 +108,134 @@ theorem t2_iff_net_unique_limit_filter {X : Type*} [TopologicalSpace X] :
       rw [← Ne, ← Filter.neBot_iff] at nebotF
       exact xneqy (cond F nebotF x y limitFx limitFy)
 
-/- ### Characterizations in terms of nets ### -/
+/- ### Limit of products ### -/
 
 /- A net in a product space converges iff every coordinate converges -/
-theorem prod_limit  {X ι D: Type*} {π : ι → Type*} [DirectedSet D] [TopologicalSpace X] [T : (i : ι) → TopologicalSpace (π i)]
-  (s: D → (i : ι) → π i) (x: (i : ι) → π i) : Limit s x ↔ ∀ (i: ι), Limit (fun (d: D) ↦ s d i) (x i) := by
-    simp only [limit_net_iff_filter, ← tendsto_id']
-    exact tendsto_pi_nhds
+theorem prod_limit  {ι: Type*} {π : ι → Type*} [T : (i : ι) → TopologicalSpace (π i)]
+  (s: D → (i : ι) → π i) (x: (i : ι) → π i) :
+    Limit s x ↔ ∀ (i: ι), Limit (fun (d: D) ↦ s d i) (x i) := by
+      simp only [limnet_iff_limfilter, ← tendsto_id']
+      exact tendsto_pi_nhds
 
-theorem prod_limit'  {X Y D: Type*} [h: DirectedSet D] [TopologicalSpace X] [TopologicalSpace Y]
-  (s: D → X × Y) (x: X × Y) : Limit s x ↔ Limit (fun (d: D) ↦ (s d).1) x.1 ∧ Limit (fun (d: D) ↦ (s d).2) x.2 := by
-    rw [limit_net_iff_filter, limit_net_iff_filter, limit_net_iff_filter, ← tendsto_id', ← tendsto_id', ← tendsto_id']
+theorem prod_limit' (s: D → X × Y) (x: X × Y) :
+  Limit s x ↔ Limit (fun (d: D) ↦ (s d).1) x.1 ∧ Limit (fun (d: D) ↦ (s d).2) x.2 := by
+    rw [limnet_iff_limfilter, limnet_iff_limfilter, limnet_iff_limfilter,
+        ← tendsto_id', ← tendsto_id', ← tendsto_id']
     exact Prod.tendsto_iff id x
 
+/- ### Closure ### -/
 
 /- An element x of X is in the closure of A iff there exists a net s: D → X such that it is contained in A and
    converges to x. -/
-theorem mem_closure_iff_exists_net {X: Type*} [TopologicalSpace X] (A: Set X) (x : X):
-  x ∈ closure A ↔ ∃ (D: Type u_1) (_: DirectedSet D) (s: D → X), (∀ (d: D), s d ∈ A) ∧ Limit s x := by
-    have : Inhabited X := by
-      exact { default := x }
+
+theorem mem_closure_of_exists_net (A: Set X) (x : X):
+  (∃ (D: Type*) (_: DirectedSet D) (s: D → X), (∀ (d: D), s d ∈ A) ∧ Limit s x) → x ∈ closure A:= by
     rw [mem_closure_iff_exists_filter]
+    intro cond
+    rcases cond with ⟨D, h, s, sinA, limitsx⟩
+    use filter_of_net s
+    exact And.intro (filter_of_net.instNeBot s)
+      (And.intro (set_in_filter_of_net_in_set A s sinA)
+      ((limnet_iff_limfilter s x).mp limitsx))
+
+theorem mem_closure_iff_exists_net (A: Set X) (x : X):
+  x ∈ closure A ↔ ∃ (D: Type u_1) (_: DirectedSet D) (s: D → X), (∀ (d: D), s d ∈ A) ∧ Limit s x := by
     constructor
-    · intro cond
+    · rw [mem_closure_iff_exists_filter]
+      intro cond
       rcases cond with ⟨F, Fnebot, AinF, limitFx⟩
-      use DirectedSetFA F A AinF, DirectedSetFA.isntDirectedSet F A AinF , NetFA F A AinF
-      exact And.intro (NetFA_subset F A AinF) (limit_filter_implies_net F A AinF x limitFx)
-    · intro cond
-      rcases cond with ⟨D, h, s, sinA, limitsx⟩
-      use FNet s
-      exact And.intro (FNet.instNeBot s) (And.intro (net_in_set_implies_set_in_filter A D h s sinA)
-        ((limit_net_iff_filter s x).mp limitsx))
+      use directedset_of_filter' F A AinF,
+        directedset_of_filter'.isntDirectedSet F A AinF, net_of_filter' F A AinF
+      exact And.intro (net_of_filter'_subset F A AinF) (limfilter'_implies_limnet F A AinF x limitFx)
+    · exact mem_closure_of_exists_net A x
 
 /- A set C of X is closed iff for every x in X and every net s: D → X contained in C that converges to x we have that x ∈ C. -/
-theorem isClosed_iff_limit_self {X: Type*} [TopologicalSpace X] (C: Set X) :
-  IsClosed C ↔ ∀ (x : X), ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X), (∀ (d: D), s d ∈ C) → Limit s x → x ∈ C := by
-    rw [isClosed_iff_forall_filter]
-    constructor
-    · intro cond
+theorem limit_self_of_isClosed (C: Set X) :
+  IsClosed C → ∀ (x : X), ∀ (D: Type*) (_: DirectedSet D) (s : D → X),
+    (∀ (d: D), s d ∈ C) → Limit s x → x ∈ C := by
+      rw [isClosed_iff_forall_filter]
+      intro cond
       intro x D h s sinC limitsx
-      have : FNet s ≤ 𝓟 C := by
+      have : filter_of_net s ≤ 𝓟 C := by
         rw [le_principal_iff]
-        exact net_in_set_implies_set_in_filter C D h s sinC
-      exact cond x (FNet s) (FNet.instNeBot s) this ((limit_net_iff_filter s x).mpr limitsx)
-    · intro cond
+        exact set_in_filter_of_net_in_set C s sinC
+      exact cond x (filter_of_net s) (filter_of_net.instNeBot s) this
+        ((limnet_iff_limfilter s x).mpr limitsx)
+
+theorem isClosed_iff_limit_self (C: Set X) :
+  IsClosed C ↔ ∀ (x : X), ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X),
+    (∀ (d: D), s d ∈ C) → Limit s x → x ∈ C := by
+    constructor
+    · exact limit_self_of_isClosed C
+    · rw [isClosed_iff_forall_filter]
+      intro cond
       intro x F Fnebot CinF limitFx
       rw [le_principal_iff] at CinF
-      exact cond x (DirectedSetFA F C CinF) (DirectedSetFA.isntDirectedSet F C CinF) (NetFA F C CinF)
-        (NetFA_subset F C CinF) (limit_filter_implies_net F C CinF x limitFx)
+      exact cond x (directedset_of_filter' F C CinF)
+        (directedset_of_filter'.isntDirectedSet F C CinF) (net_of_filter' F C CinF)
+        (net_of_filter'_subset F C CinF) (limfilter'_implies_limnet F C CinF x limitFx)
+
+/- ### Compactness ### -/
 
 /- A set K of X is compact iff (K is empty or) any net s: D → X contained in K has a cluster point x such that x ∈ K. -/
-theorem compact_iff_net_has_accumulationpoint {X : Type*} [TopologicalSpace X] (K: Set X) : IsCompact K ↔
-  K = ∅ ∨ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X), (∀ (d : D), s d ∈ K) → (∃ x ∈ K, ClusterPoint s x) := by
-    constructor
-    · intro Kcomp
+theorem net_has_accumulationpoint_of_compact (K: Set X) : IsCompact K →
+  K = ∅ ∨ ∀ (D: Type*) (_: DirectedSet D) (s : D → X),
+    (∀ (d : D), s d ∈ K) → (∃ x ∈ K, ClusterPt s x) := by
+      intro Kcomp
       by_cases Kem : K = ∅
       · left
         assumption
       · right
         intro D h s sinK
         simp only [IsCompact] at Kcomp
-        rcases Kcomp ((le_principal_iff).mpr (net_in_set_implies_set_in_filter K D h s sinK)) with ⟨x, xinK, clpointFx⟩
+        rcases Kcomp ((le_principal_iff).mpr (set_in_filter_of_net_in_set K s sinK)) with
+          ⟨x, xinK, clpointFx⟩
         use x
-        exact And.intro xinK ((clpoint_net_iff_filter s x).mpr clpointFx)
-    · intro cond
-      rcases cond with cond | cond
-      · rw [cond]
-        exact isCompact_empty
-      · simp only [IsCompact]
-        intro F Fnebot KinF
-        rw [le_principal_iff] at KinF
-        rcases cond (DirectedSetFA F K KinF) (DirectedSetFA.isntDirectedSet F K KinF) (NetFA F K KinF)
-          (NetFA_subset F K KinF) with ⟨x, xinK, clpoint⟩
-        use x
-        exact And.intro xinK (clupoint_NetF_inclusion_implies_clpoint F K KinF x clpoint)
+        exact And.intro xinK ((clpointnet_iff_clpointfilter s x).mpr clpointFx)
+
+theorem compact_iff_net_has_accumulationpoint (K: Set X) : IsCompact K ↔
+  K = ∅ ∨ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X),
+    (∀ (d : D), s d ∈ K) → (∃ x ∈ K, ClusterPt s x) := by
+      constructor
+      · exact net_has_accumulationpoint_of_compact K
+      · intro cond
+        rcases cond with cond | cond
+        · rw [cond]
+          exact isCompact_empty
+        · simp only [IsCompact]
+          intro F Fnebot KinF
+          rw [le_principal_iff] at KinF
+          rcases cond (directedset_of_filter' F K KinF)
+            (directedset_of_filter'.isntDirectedSet F K KinF) (net_of_filter' F K KinF)
+            (net_of_filter'_subset F K KinF) with ⟨x, xinK, clpoint⟩
+          use x
+          exact And.intro xinK (clupointnet'_implies_clpointfilter F K KinF x clpoint)
 
 /- A set K of X is compact iff (K is empty or) any net s: D → X contained in K has a subnet that converges to a point of K. -/
-theorem compact_iff_net_has_convergent_subnet {X : Type*} [TopologicalSpace X] (K: Set X) : IsCompact K ↔
+theorem compact_iff_net_has_convergent_subnet (K: Set X) : IsCompact K ↔
   K = ∅ ∨ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X), (∀ (d : D), s d ∈ K) →
-  (∃ (E: Type u_1) (_: DirectedSet E) (s': E → X), ∃ x ∈ K, Subnet s s' ∧ Limit s' x) := by
-    have : (∀ (D: Type u_1) (h: DirectedSet D) (s : D → X), (∀ (d : D), s d ∈ K) → ∃ (E: Type u_1) (h': DirectedSet E) (s': E → X), ∃ x ∈ K, Subnet s s' ∧ Limit s' x) ↔
-             (∀ (D: Type u_1) (h: DirectedSet D) (s : D → X), (∀ (d : D), s d ∈ K) → ∃ x ∈ K, ClusterPoint s x) := by
-              constructor
-              · intro t D h s dinK
-                rcases t D h s dinK with ⟨E, h', s', x, xinK, eq⟩
-                use x, xinK
-                rw [clpoint_iff_exists_subnet]
-                use E, h', s'
-              · intro t D h s dinK
-                rcases t D h s dinK with ⟨x, xinK, eq⟩
-                rw [clpoint_iff_exists_subnet] at eq
-                rcases eq with ⟨E, h', s', eq⟩
-                use E, h', s', x
-    rw [compact_iff_net_has_accumulationpoint, this]
+  (∃ x ∈ K, ∃ (E: Type u_1) (_: DirectedSet E) (s': E → X), Subnet s s' ∧ Limit s' x) := by
+    simp only [compact_iff_net_has_accumulationpoint, clpoint_iff_exists_subnet]
+
+/- ### Continuity ### -/
 
 /- A function f: X → Y is continuous at x iff for every net s: D → X we have that the net f ∘ s: D → Y converges to f x. -/
-theorem apply_fun_net {X Y D: Type*} [DirectedSet D] [TopologicalSpace X] [TopologicalSpace Y] (f: X → Y) (x : X) {s: D → X}:
+theorem apply_fun_net (f: X → Y) (x : X) {s: D → X}:
   ContinuousAt f x → Limit s x → Limit (f ∘ s) (f x) := by
     intro fcontatx limitsx
     unfold ContinuousAt at fcontatx
     rw [Filter.tendsto_def] at fcontatx
-    rw [limit_net_iff_filter]
+    rw [limnet_iff_limfilter]
     intro V Vnhds
-    simp only [FNet, Filter.mem_mk, Set.mem_setOf_eq]
+    simp only [filter_of_net, Filter.mem_mk, Set.mem_setOf_eq]
     have := limitsx (f ⁻¹' V) (fcontatx V Vnhds)
     simp only [mem_preimage] at this
     simp only [comp_apply]
     assumption
 
-theorem continuous_iff_image_of_net_converges {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y] (f: X → Y) (x : X):
-  ContinuousAt f x ↔ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X), Limit s x → Limit (f ∘ s) (f x) := by
+theorem continuous_iff_image_of_net_converges (f: X → Y) (x : X):
+  ContinuousAt f x ↔ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X),
+    Limit s x → Limit (f ∘ s) (f x) := by
     constructor
     · intro fcontatx D Ddirected s slimitx
       exact apply_fun_net f x fcontatx slimitx
@@ -233,64 +243,61 @@ theorem continuous_iff_image_of_net_converges {X Y : Type*} [TopologicalSpace X]
       unfold ContinuousAt
       rw [Filter.tendsto_def]
       intro V Vnhds
-      have : Limit (NetF (𝓝 x)) x := by
-        intro U Unhds
-        use ⟨(x, U), And.intro (mem_of_mem_nhds Unhds) Unhds⟩
-        intro d xUled
-        simp only [NetF]
-        simp only [DirectedSetF_le_iff] at xUled
-        exact xUled d.2.1
-      rcases cond (DirectedSetF (𝓝 x)) (DirectedSetF.isntDirectedSet (𝓝 x)) (NetF (𝓝 x)) this V Vnhds with ⟨d, eq⟩
+      rcases cond (directedset_of_filter (𝓝 x))
+        (directedset_of_filter.isntDirectedSet (𝓝 x))
+        (net_of_filter (𝓝 x)) (aaa x) V Vnhds with ⟨d, eq⟩
       have : d.1.2 ⊆ f ⁻¹' V := by
         intro z zind2
         rw [mem_preimage]
         have : d ≤ ⟨(z, d.1.2), And.intro zind2 d.2.2⟩ := by
-          rw [DirectedSetF_le_iff]
+          rw [directedset_of_filter_le_iff]
         have := eq ⟨(z, d.1.2), And.intro zind2 d.2.2⟩ this
-        simp only [NetF, comp_apply] at this
+        simp only [net_of_filter, comp_apply] at this
         assumption
       exact mem_of_superset d.2.2 this
 
 /- A topological space X is T2 iff every net in X has at most one limit point. -/
-theorem t2_iff_net_unique_limit {X : Type*} [TopologicalSpace X] :
+theorem t2_iff_net_unique_limit :
   T2Space X ↔ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X) (x y : X), Limit s x → Limit s y → x = y := by
-    rw [t2_iff_net_unique_limit_filter]
+    rw [t2_iff_filter]
     constructor
     · intro cond
       intro D h s x y limitsx limitsy
-      rw [limit_net_iff_filter] at *
-      exact cond (FNet s) (FNet.instNeBot s) x y limitsx limitsy
+      rw [limnet_iff_limfilter] at *
+      exact cond (filter_of_net s) (filter_of_net.instNeBot s) x y limitsx limitsy
     · intro cond F Fnebot x y limitFx limitFy
-      rw [limit_filter_iff_net] at *
-      exact cond (DirectedSetF F) (DirectedSetF.isntDirectedSet F) (NetF F) x y limitFx limitFy
+      rw [limfilter_iff_limnet] at *
+      exact cond (directedset_of_filter F) (directedset_of_filter.isntDirectedSet F)
+        (net_of_filter F) x y limitFx limitFy
 
 theorem unique_limit {X D: Type*} [h: DirectedSet D] [TopologicalSpace X] [T: T2Space X] {s: D → X} {x y: X}:
   Limit s y → Limit s x → x = y := by
-    rw [t2_iff_net_unique_limit_filter] at T
+    rw [t2_iff_filter] at T
     intro slimity slimitx
-    rw [limit_net_iff_filter] at *
-    exact T (FNet s) (FNet.instNeBot s) x y slimitx slimity
+    rw [limnet_iff_limfilter] at *
+    exact T (filter_of_net s) (filter_of_net.instNeBot s) x y slimitx slimity
 
 /- A uniform space is complete iff is CompleteNet -/
-theorem complete_iff_netcomplete {X: Type*} [UniformSpace X]:
-  CompleteSpace X ↔ CompleteNet X := by
+theorem complete_iff_netcomplete:
+  CompleteSpace Z ↔ CompleteNet Z := by
     constructor
-    · intro completeX
+    · intro completeZ
       unfold CompleteNet
       intro D h s cauchys
-      rcases completeX.complete ((cauchy_net_iff_filter s).mp cauchys) with ⟨x, limitFx⟩
+      rcases completeZ.complete ((cauchynet_iff_cauchyfilter s).mp cauchys) with ⟨x, limitFx⟩
       use x
-      rw [limit_net_iff_filter]
+      rw [limnet_iff_limfilter]
       assumption
-    · intro completeX
-      unfold CompleteNet at completeX
+    · intro completeZ
+      unfold CompleteNet at completeZ
       apply completeSpace_of_isComplete_univ
       unfold IsComplete
       intro F cauchyF _
-      rcases completeX (DirectedSetF F) (@DirectedSetF.isntDirectedSet X F cauchyF.1) (NetF F)
-        ((@cauchy_filter_iff_net X _ F cauchyF.1).mp cauchyF) with ⟨x, limitsx⟩
+      rcases completeZ (directedset_of_filter F)
+        (@directedset_of_filter.isntDirectedSet Z F cauchyF.1) (net_of_filter F)
+        ((@cauchyfilter_iff_cauchynet Z _ F cauchyF.1).mp cauchyF) with ⟨x, limitsx⟩
       use x
       constructor
       · exact mem_univ x
-      · rw [@limit_filter_iff_net X _ F cauchyF.1 x]
+      · rw [@limfilter_iff_limnet Z _ F cauchyF.1 x]
         assumption

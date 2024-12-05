@@ -32,6 +32,8 @@ theorem DirectedSet.sup_finite_set {D : Type*} [DirectedSet D] (I : Finset D): �
 
 /- ### Instances ### -/
 
+/- # Linear order # -/
+
 /- Every linear order is a directed set -/
 
 instance LinearOrder.instDirectedSet {X : Type*} [LinearOrder X] [Inhabited X] : DirectedSet X where
@@ -43,6 +45,8 @@ instance LinearOrder.instDirectedSet {X : Type*} [LinearOrder X] [Inhabited X] :
 /- The set of natural numbers is a directed set with its usual order -/
 
 instance : DirectedSet ℕ := LinearOrder.instDirectedSet
+
+/- # Family of sets with inclusion (⊇) # -/
 
 /- The set of neighbourhoods of a point x (ordered by ⊇) is a directed set -/
 
@@ -72,6 +76,8 @@ def DirectedSet.instNeighbourhoodLeft {X: Type*} [TopologicalSpace X] (x : X) : 
     · apply inter_subset_left
     · apply inter_subset_right
 
+/- # Family of sets with inclusion (⊆) # -/
+
 /- -- The set of neighbourhoods of a point x (ordered by ⊆) is a directed set -/
 
 lemma union_mem {X: Type*} [TopologicalSpace X] (A B : Set X) (x : X) :
@@ -93,6 +99,8 @@ def DirectedSet.instNeighbourhoodRight {X: Type*} [TopologicalSpace X] (x : X) :
     · apply subset_union_left
     · apply subset_union_right
 
+/- # Product of directed sets  # -/
+
 /- The product of directed sets is a directed set with the order relation defined pointwise -/
 
 instance DirectedSet.instProduct {D E : Type*} [DirectedSet D] [DirectedSet E] : DirectedSet (D × E) where
@@ -103,6 +111,8 @@ instance DirectedSet.instProduct {D E : Type*} [DirectedSet D] [DirectedSet E] :
     rcases DirectedSet.directed' u.2 v.2 with ⟨f2, f2le⟩
     use (f1, f2)
     exact And.intro (And.intro f1le.1 f2le.1) (And.intro f1le.2 f2le.2)
+
+/- # Family of finite intersections of a set # -/
 
 /- Set of finite intersections of sets is directed by ⊇
 
@@ -174,6 +184,8 @@ def DirectedSet.instFiniteInterLeft {X F: Type*} {A: F → Set X} (K := univ) : 
       constructor
       · apply inter_subset_left
       · apply inter_subset_right
+
+/- # Finset # -/
 
 /- Family of finite subsets of a type is directed by inclusion -/
 
