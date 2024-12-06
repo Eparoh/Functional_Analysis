@@ -9,64 +9,6 @@ open Set Filter Topology Function DirectedSet
 
 namespace Net
 
-/- ### Summable = NetSummable ### -/
-
-/- A function is summable iff it is net summable -/
-theorem hassum_iff_hassumnet {I X: Type*}  [AddCommMonoid X] [TopologicalSpace X] (f: I → X) (x: X):
-  HasSum f x ↔ HasSumNet f x := by
-    unfold HasSum HasSumNet Limit
-    simp only [tendsto_nhds, Filter.mem_atTop_sets, Finset.le_eq_subset, Set.mem_preimage, ge_iff_le]
-    constructor
-    · intro fhsum
-      intro U Unhds
-      rw [mem_nhds_iff] at Unhds
-      rcases Unhds with ⟨V, VsubU, Vopen, xinV⟩
-      rcases fhsum V Vopen xinV with ⟨d₀, eq⟩
-      use d₀
-      intro d d₀subd
-      apply VsubU
-      exact eq d d₀subd
-    · intro fhsumnet
-      intro U Uopen xinU
-      exact fhsumnet U (by rw [mem_nhds_iff]; use U)
-
-theorem summable_iff_summablenet {I X: Type*}  [AddCommMonoid X] [TopologicalSpace X] (f: I → X):
-  Summable f ↔ SummableNet f := by
-    unfold Summable SummableNet
-    simp only [hassum_iff_hassumnet]
-
-/- ### CauchySumable = CauchySeq ### -/
-theorem cauchysum_iff_cauchyseqsum {I X: Type*} [AddCommMonoid X] [UniformSpace X] (f: I → X):
-  CauchySumNet f ↔ CauchySeq (fun (s: Finset I) ↦ ∑ i ∈ s, f i) := by
-    unfold CauchySumNet CauchySeq
-    rw [cauchy_iff']
-    unfold CauchyNet
-    simp
-    constructor
-    · intro h
-      constructor
-      · exact map_neBot
-      · intro U Uinunif
-        rcases h U Uinunif with ⟨J₀, eq⟩
-        use {x: X | ∃ (J: Finset I), J₀ ⊆ J ∧ x = ∑ i ∈ J, f i}
-        constructor
-        · use J₀
-          intro J J₀subJ
-          rw [Set.mem_setOf_eq]
-          use J
-        · intro x xin y yin
-          rw [Set.mem_setOf_eq] at *
-          rcases xin with ⟨J₁, J₀subJ₁, xeqsum⟩
-          rcases yin with ⟨J₂, J₀subJ₂, yeqsum⟩
-          rw [xeqsum, yeqsum]
-          exact eq J₁ J₂ J₀subJ₁ J₀subJ₂
-    · intro h U Uinunif
-      rcases h.2 U Uinunif with ⟨A, eq⟩
-      rcases eq.1 with ⟨J₀, memA⟩
-      use J₀
-      intro J₁ J₂ J₀subJ₁ J₀subJ₂
-      exact eq.2 (∑ e ∈ J₁, f e) (memA J₁ J₀subJ₁) (∑ e ∈ J₂, f e) (memA J₂ J₀subJ₂)
-
 /- ### Archimedean property ### -/
 
 theorem Real_archimedean (x y : ℝ) : (0 < x) → ∃ (n : ℕ), y < n * x := by
@@ -75,63 +17,7 @@ theorem Real_archimedean (x y : ℝ) : (0 < x) → ∃ (n : ℕ), y < n * x := b
   simp only [nsmul_eq_mul] at this
   assumption
 
-/- ### Characterization of convergence and Cauchy in metric spaces ### -/
 
-/- Characterization of convergence in a metric space -/
-lemma limit_metric_iff {X D: Type*} [DirectedSet D] [PseudoMetricSpace X] (s: D → X) (x: X):
-  Limit s x ↔ ∀ (ε: ℝ), (0 < ε → ∃ (d₀: D), (∀ (d: D), d₀ ≤ d → dist (s d) x < ε)) := by
-    constructor
-    · intro limitsx
-      intro ε εpos
-      have:= limitsx (Metric.ball x ε) (by exact Metric.ball_mem_nhds x εpos)
-      simp only [Metric.mem_ball] at this
-      exact this
-    · intro cond U Unhds
-      rw [Metric.mem_nhds_iff] at Unhds
-      rcases Unhds with ⟨ε, εpos, ballsubU⟩
-      rcases cond ε εpos with ⟨d₀, eq⟩
-      use d₀
-      intro d d₀led
-      apply ballsubU
-      rw [Metric.mem_ball]
-      exact eq d d₀led
-
-/- Characterization of a Cauchy net in a metric space -/
-lemma cauchy_metric_iff {X D: Type*} [DirectedSet D] [PseudoMetricSpace X] (s: D → X):
-  CauchyNet s ↔ ∀ (ε: ℝ), (0 < ε → ∃ (d₀: D), (∀ (d e: D), d₀ ≤ d → d₀ ≤ e → dist (s d) (s e) < ε)) := by
-    constructor
-    · intro sCauchy
-      intro ε εpos
-      have := sCauchy {p | dist p.1 p.2 < ε} (Metric.dist_mem_uniformity εpos)
-      simp only [Set.mem_setOf_eq] at this
-      assumption
-    · intro cond
-      intro U Uunif
-      rw [Metric.mem_uniformity_dist] at Uunif
-      rcases Uunif with ⟨ε, εpos, eq⟩
-      rcases cond ε εpos with ⟨d₀, eq'⟩
-      use d₀
-      intro d e d₀led d₀lee
-      exact eq (eq' d e d₀led d₀lee)
-
-lemma cauchy_metric_iff' {X: Type*}[PseudoMetricSpace X] (s: ℕ → X):
-  CauchyNet s ↔ ∀ (ε: ℝ), (0 < ε → ∃ (n₀: ℕ), (∀ (n m: ℕ), n₀ ≤ n → n ≤ m → dist (s n) (s m) < ε)) := by
-    rw [cauchy_metric_iff]
-    constructor
-    · intro cond ε εpos
-      rcases cond ε εpos with ⟨n₀, eq⟩
-      use n₀
-      intro n m n₀len nlem
-      exact eq n m n₀len (le_trans n₀len nlem)
-    · intro cond ε εpos
-      rcases cond ε εpos with ⟨n₀, eq⟩
-      use n₀
-      intro n m n₀len n₀lem
-      by_cases h: n ≤ m
-      · exact eq n m n₀len h
-      · rw [Nat.not_le] at h
-        rw [dist_comm]
-        exact eq m n n₀lem (le_of_lt h)
 
 /- ### Some properties ### -/
 

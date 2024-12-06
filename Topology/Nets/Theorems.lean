@@ -193,6 +193,14 @@ theorem net_has_accumulationpoint_of_compact (K: Set X) : IsCompact K →
         use x
         exact And.intro xinK ((clpointnet_iff_clpointfilter s x).mpr clpointFx)
 
+theorem net_has_accumulationpoint_of_compact' {K: Set X} (Knempty: K ≠ ∅) :
+  IsCompact K → ∀ (D: Type*) (_: DirectedSet D) (s : D → X),
+    (∀ (d : D), s d ∈ K) → (∃ x ∈ K, ClusterPt s x) := by
+      intro Kcomp
+      rcases net_has_accumulationpoint_of_compact K Kcomp with h | h
+      · contradiction
+      · assumption
+
 theorem compact_iff_net_has_accumulationpoint (K: Set X) : IsCompact K ↔
   K = ∅ ∨ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X),
     (∀ (d : D), s d ∈ K) → (∃ x ∈ K, ClusterPt s x) := by
@@ -211,16 +219,56 @@ theorem compact_iff_net_has_accumulationpoint (K: Set X) : IsCompact K ↔
           use x
           exact And.intro xinK (clupointnet'_implies_clpointfilter F K KinF x clpoint)
 
+theorem compact_iff_net_has_accumulationpoint' {K: Set X} (Knempty: K ≠ ∅) :
+  IsCompact K ↔ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X),
+    (∀ (d : D), s d ∈ K) → (∃ x ∈ K, ClusterPt s x) := by
+      constructor
+      · exact net_has_accumulationpoint_of_compact' Knempty
+      · intro cond
+        exact (compact_iff_net_has_accumulationpoint K).mpr (@Or.inr (K = ∅) _ cond)
+
 /- A set K of X is compact iff (K is empty or) any net s: D → X contained in K has a subnet that converges to a point of K. -/
+theorem has_convergent_subnet_of_compact (K: Set X) : IsCompact K →
+  K = ∅ ∨ ∀ (D: Type*) (_: DirectedSet D) (s : D → X), (∀ (d : D), s d ∈ K) →
+  (∃ x ∈ K, ∃ (E: Type (max u_1 u_5)) (_: DirectedSet E) (s': E → X),
+  Subnet s s' ∧ Limit s' x) := by
+      intro Kcomp
+      rcases (net_has_accumulationpoint_of_compact K Kcomp) with h | h
+      · left
+        assumption
+      · right
+        intro D Ddir s sinK
+        rcases h D Ddir s sinK with ⟨x, xinK, xclpt⟩
+        rw [clpoint_iff_exists_subnet] at xclpt
+        use x
+
+theorem has_convergent_subnet_of_compact' {K: Set X} (Knempty: K ≠ ∅) : IsCompact K →
+  ∀ (D: Type*) (_: DirectedSet D) (s : D → X), (∀ (d : D), s d ∈ K) →
+  (∃ x ∈ K, ∃ (E: Type (max u_1 u_5)) (_: DirectedSet E) (s': E → X),
+  Subnet s s' ∧ Limit s' x) := by
+      intro Kcomp
+      rcases has_convergent_subnet_of_compact K Kcomp with h | h
+      · contradiction
+      · assumption
+
 theorem compact_iff_net_has_convergent_subnet (K: Set X) : IsCompact K ↔
   K = ∅ ∨ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X), (∀ (d : D), s d ∈ K) →
   (∃ x ∈ K, ∃ (E: Type u_1) (_: DirectedSet E) (s': E → X), Subnet s s' ∧ Limit s' x) := by
     simp only [compact_iff_net_has_accumulationpoint, clpoint_iff_exists_subnet]
 
+theorem compact_iff_net_has_convergent_subnet' {K: Set X} (Knempty: K ≠ ∅) :
+  IsCompact K ↔
+  ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X), (∀ (d : D), s d ∈ K) →
+  (∃ x ∈ K, ∃ (E: Type u_1) (_: DirectedSet E) (s': E → X), Subnet s s' ∧ Limit s' x) := by
+    constructor
+    · exact has_convergent_subnet_of_compact' Knempty
+    · intro cond
+      exact (compact_iff_net_has_convergent_subnet K).mpr (@Or.inr (K = ∅) _ cond)
+
 /- ### Continuity ### -/
 
 /- A function f: X → Y is continuous at x iff for every net s: D → X we have that the net f ∘ s: D → Y converges to f x. -/
-theorem apply_fun_net (f: X → Y) (x : X) {s: D → X}:
+theorem limfunnet_of_continuousAt (f: X → Y) (x : X) {s: D → X}:
   ContinuousAt f x → Limit s x → Limit (f ∘ s) (f x) := by
     intro fcontatx limitsx
     unfold ContinuousAt at fcontatx
@@ -238,14 +286,14 @@ theorem continuous_iff_image_of_net_converges (f: X → Y) (x : X):
     Limit s x → Limit (f ∘ s) (f x) := by
     constructor
     · intro fcontatx D Ddirected s slimitx
-      exact apply_fun_net f x fcontatx slimitx
+      exact limfunnet_of_continuousAt f x fcontatx slimitx
     · intro cond
       unfold ContinuousAt
       rw [Filter.tendsto_def]
       intro V Vnhds
       rcases cond (directedset_of_filter (𝓝 x))
         (directedset_of_filter.isntDirectedSet (𝓝 x))
-        (net_of_filter (𝓝 x)) (aaa x) V Vnhds with ⟨d, eq⟩
+        (net_of_filter (𝓝 x)) (limnet_of_filter_nhds x) V Vnhds with ⟨d, eq⟩
       have : d.1.2 ⊆ f ⁻¹' V := by
         intro z zind2
         rw [mem_preimage]
@@ -256,26 +304,35 @@ theorem continuous_iff_image_of_net_converges (f: X → Y) (x : X):
         assumption
       exact mem_of_superset d.2.2 this
 
+/- ### T2 Spaces ### -/
+
 /- A topological space X is T2 iff every net in X has at most one limit point. -/
-theorem t2_iff_net_unique_limit :
-  T2Space X ↔ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X) (x y : X), Limit s x → Limit s y → x = y := by
-    rw [t2_iff_filter]
-    constructor
-    · intro cond
+theorem net_unique_limit_of_T2 :
+  T2Space X → ∀ (D: Type*) (_: DirectedSet D) (s : D → X) (x y : X),
+     Limit s x → Limit s y → x = y := by
+      rw [t2_iff_filter]
+      intro cond
       intro D h s x y limitsx limitsy
       rw [limnet_iff_limfilter] at *
       exact cond (filter_of_net s) (filter_of_net.instNeBot s) x y limitsx limitsy
-    · intro cond F Fnebot x y limitFx limitFy
+
+theorem net_unique_limit_of_T2' {D: Type*} [h: DirectedSet D] [T: T2Space X]
+  {s: D → X} {x y: X}:
+    Limit s x → Limit s y → x = y := by
+      exact net_unique_limit_of_T2 T D h s x y
+
+theorem T2_iff_net_unique_limit :
+  T2Space X ↔ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X) (x y : X),
+    Limit s x → Limit s y → x = y := by
+    constructor
+    · exact net_unique_limit_of_T2
+    · rw [t2_iff_filter]
+      intro cond F Fnebot x y limitFx limitFy
       rw [limfilter_iff_limnet] at *
       exact cond (directedset_of_filter F) (directedset_of_filter.isntDirectedSet F)
         (net_of_filter F) x y limitFx limitFy
 
-theorem unique_limit {X D: Type*} [h: DirectedSet D] [TopologicalSpace X] [T: T2Space X] {s: D → X} {x y: X}:
-  Limit s y → Limit s x → x = y := by
-    rw [t2_iff_filter] at T
-    intro slimity slimitx
-    rw [limnet_iff_limfilter] at *
-    exact T (filter_of_net s) (filter_of_net.instNeBot s) x y slimitx slimity
+/- ### Completeness ### -/
 
 /- A uniform space is complete iff is CompleteNet -/
 theorem complete_iff_netcomplete:

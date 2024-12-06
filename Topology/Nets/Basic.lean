@@ -178,3 +178,68 @@ theorem clpoint_iff_exists_subnet {D: Type*} [h: DirectedSet D] (s: D → X) (x 
           rfl
         rw [this, ← s'eqscompi]
         apply e₁_eq e e₁lee
+
+/- ### Characterization of convergence and Cauchy in metric spaces ### -/
+
+variable {M: Type*} [PseudoMetricSpace M]
+
+/- Characterization of convergence in a metric space -/
+lemma limit_metric_iff (s: D → M) (x: M):
+  Limit s x ↔
+  ∀ (ε: ℝ), (0 < ε → ∃ (d₀: D), (∀ (d: D), d₀ ≤ d → dist (s d) x < ε)) := by
+    constructor
+    · intro limitsx
+      intro ε εpos
+      have:= limitsx (Metric.ball x ε) (by exact Metric.ball_mem_nhds x εpos)
+      simp only [Metric.mem_ball] at this
+      exact this
+    · intro cond U Unhds
+      rw [Metric.mem_nhds_iff] at Unhds
+      rcases Unhds with ⟨ε, εpos, ballsubU⟩
+      rcases cond ε εpos with ⟨d₀, eq⟩
+      use d₀
+      intro d d₀led
+      apply ballsubU
+      rw [Metric.mem_ball]
+      exact eq d d₀led
+
+/- Characterization of a Cauchy net in a metric space -/
+lemma cauchy_metric_iff (s: D → M):
+  CauchyNet s ↔
+  ∀ (ε: ℝ), (0 < ε →
+    ∃ (d₀: D), (∀ (d e: D), d₀ ≤ d → d₀ ≤ e → dist (s d) (s e) < ε)) := by
+    constructor
+    · intro sCauchy
+      intro ε εpos
+      have := sCauchy {p | dist p.1 p.2 < ε} (Metric.dist_mem_uniformity εpos)
+      simp only [Set.mem_setOf_eq] at this
+      assumption
+    · intro cond
+      intro U Uunif
+      rw [Metric.mem_uniformity_dist] at Uunif
+      rcases Uunif with ⟨ε, εpos, eq⟩
+      rcases cond ε εpos with ⟨d₀, eq'⟩
+      use d₀
+      intro d e d₀led d₀lee
+      exact eq (eq' d e d₀led d₀lee)
+
+lemma Nat_cauchy_metric_iff (s: ℕ → M):
+  CauchyNet s ↔
+  ∀ (ε: ℝ), (0 < ε →
+    ∃ (n₀: ℕ), (∀ (n m: ℕ), n₀ ≤ n → n ≤ m → dist (s n) (s m) < ε)) := by
+    rw [cauchy_metric_iff]
+    constructor
+    · intro cond ε εpos
+      rcases cond ε εpos with ⟨n₀, eq⟩
+      use n₀
+      intro n m n₀len nlem
+      exact eq n m n₀len (le_trans n₀len nlem)
+    · intro cond ε εpos
+      rcases cond ε εpos with ⟨n₀, eq⟩
+      use n₀
+      intro n m n₀len n₀lem
+      by_cases h: n ≤ m
+      · exact eq n m n₀len h
+      · rw [Nat.not_le] at h
+        rw [dist_comm]
+        exact eq m n n₀lem (le_of_lt h)

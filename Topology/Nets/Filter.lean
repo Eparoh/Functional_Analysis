@@ -15,7 +15,7 @@ namespace Net
 
 section Definitions
 
-variable {X D: Type*} [DirectedSet D] [TopologicalSpace Y]
+variable {X D: Type*} [DirectedSet D]
 
 /- ### Filter associated to a net ### -/
 
@@ -257,6 +257,36 @@ theorem net_of_filter'_subset (F: Filter X) [NeBot F] (A: Set X) (h: A ∈ F) :
     simp only [comp_apply, net_of_filter']
     exact d.2.2.2 d.2.1
 
+/- ### Relation between both definitions ### -/
+
+theorem filter_of_net_of_filter (F: Filter X) [NeBot F] :
+  F = filter_of_net (net_of_filter F) := by
+    ext A
+    constructor
+    · intro AinF
+      have : ∃ (x: X), x ∈ A := by
+        exact Eventually.exists AinF
+      rcases this with ⟨x, xinA⟩
+      unfold filter_of_net net_of_filter
+      rw [Filter.mem_mk, Set.mem_setOf_eq]
+      have : (x, A) ∈ directedset_of_filter F := by
+        unfold directedset_of_filter
+        simp only [Set.mem_setOf_eq]
+        exact And.intro xinA AinF
+      use ⟨(x,A), this⟩
+      intro P xAleP
+      simp only [directedset_of_filter_le_iff] at xAleP
+      exact xAleP P.2.1
+    · intro Ain
+      unfold filter_of_net net_of_filter at Ain
+      rw [Filter.mem_mk, Set.mem_setOf_eq] at Ain
+      rcases Ain with ⟨P, eq⟩
+      simp only [directedset_of_filter_le_iff, Subtype.forall, Prod.forall] at eq
+      have : P.1.2 ⊆ A := by
+        intro x xinP2
+        exact eq x P.1.2 (And.intro xinP2 P.2.2) (le_refl P.1.2)
+      exact mem_of_superset P.2.2 this
+
 end Definitions
 end Net
 
@@ -269,12 +299,6 @@ end Net
 section Results
 
 variable {X D: Type*} [TopologicalSpace X] [DirectedSet D]
-
-/- ### Relation between both definitions ### -/
-
-theorem eq_defi (F: Filter X) [NeBot F] :
-  F = filter_of_net (net_of_filter F) := by
-    sorry
 
 /- ### Limits ### -/
 
@@ -328,8 +352,8 @@ theorem limfilter'_implies_limnet (F: Filter X) [NeBot F] (A: Set X) (h: A ∈ F
     rw [limfilter_iff_limnet] at limitFx
     exact subnet_same_limit (net_of_filter'_subnet F A h) limitFx
 
-theorem aaa (x: X): Limit (net_of_filter (𝓝 x)) x := by
-  rw [limnet_iff_limfilter, ← eq_defi]
+theorem limnet_of_filter_nhds (x: X): Limit (net_of_filter (𝓝 x)) x := by
+  rw [limnet_iff_limfilter, ← filter_of_net_of_filter]
 
 /- ### Cluster points ### -/
 
