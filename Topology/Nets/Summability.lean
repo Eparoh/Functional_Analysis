@@ -50,36 +50,20 @@ theorem summable_iff_summablenet (f: I → X):
 
 /- ### CauchySumable = CauchySeq ### -/
 
-theorem cauchySeq_iff_cauchynet {X D: Type*} [UniformSpace X] [DirectedSet D]
-  (f: D → X) : CauchySeq f ↔ CauchyNet f := by
-    unfold CauchySeq CauchyNet
-    rw [cauchy_iff']
-    simp only [mem_map, mem_atTop_sets, ge_iff_le, mem_preimage]
-    constructor
-    · intro h U Uinunif
-      rcases h.2 U Uinunif with ⟨A, eq⟩
-      rcases eq.1 with ⟨d₀, inA⟩
-      use d₀
-      intro d e d₀led d₀lee
-      exact eq.2 (f d) (inA d d₀led) (f e) (inA e d₀lee)
-    · intro h
-      constructor
-      · exact map_neBot
-      · intro U Uinunif
-        rcases h U Uinunif with ⟨d₀, eq⟩
-        use f '' {d: D | d₀ ≤ d}
-        simp only [mem_image, Set.mem_setOf_eq]
-        constructor
-        · use d₀
-          intro d d₀led
-          use d
-        · intro x condx y condy
-          rcases condx with ⟨dx, d₀ledx, fdxeqx⟩
-          rcases condy with ⟨dy, d₀ledy, fdyeqy⟩
-          rw [← fdxeqx, ← fdyeqy]
-          exact eq dx dy d₀ledx d₀ledy
-
 theorem cauchysum_iff_cauchySeqsum (f: I → Z):
   CauchySumNet f ↔ CauchySeq (fun (s: Finset I) ↦ ∑ i ∈ s, f i) := by
     rw [cauchySeq_iff_cauchynet]
     rfl
+
+theorem cauchysum_of_summable {f: I → Z} (h: SummableNet f):
+  CauchySumNet f := by
+    exact cauchy_of_exists_lim h
+
+theorem summable_iff_cauchysum {I: Type u_3} [h: CompleteSpace Z] {f: I → Z} :
+  SummableNet f ↔ CauchySumNet f := by
+    rw [complete_iff_netcomplete] at h
+    constructor
+    · exact cauchysum_of_summable
+    · unfold CompleteNet at h
+      exact h (Finset I) DirectedSet.instFinset
+        (fun (E: Finset I) ↦ ∑ e ∈ E, f e)

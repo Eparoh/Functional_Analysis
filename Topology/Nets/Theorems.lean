@@ -1,5 +1,7 @@
 import Topology.Nets.Filter
 import Mathlib.Topology.Algebra.InfiniteSum.Defs
+import Mathlib.Topology.Constructions
+import Mathlib.Analysis.Normed.Group.Basic
 
 set_option trace.Meta.Tactic.simp false
 
@@ -84,7 +86,8 @@ theorem mem_closure_iff_exists_filter (A: Set X) (x : X) :
 
 /- A topological space X is T2 iff every NeBot filter F in X has at most one limit point. -/
 theorem t2_iff_filter:
-  T2Space X ↔ ∀ (F: Filter X) (_: Filter.NeBot F) (x y : X), F ≤ 𝓝 x → F ≤ 𝓝 y → x = y := by
+  T2Space X ↔ ∀ (F: Filter X) (_: Filter.NeBot F) (x y : X),
+    F ≤ 𝓝 x → F ≤ 𝓝 y → x = y := by
     constructor
     · intro t2
       intro F h x y limitFx limitFy
@@ -111,7 +114,8 @@ theorem t2_iff_filter:
 /- ### Limit of products ### -/
 
 /- A net in a product space converges iff every coordinate converges -/
-theorem prod_limit  {ι: Type*} {π : ι → Type*} [T : (i : ι) → TopologicalSpace (π i)]
+theorem prod_limit  {ι: Type*} {π : ι → Type*}
+  [T : (i : ι) → TopologicalSpace (π i)]
   (s: D → (i : ι) → π i) (x: (i : ι) → π i) :
     Limit s x ↔ ∀ (i: ι), Limit (fun (d: D) ↦ s d i) (x i) := by
       simp only [limnet_iff_limfilter, ← tendsto_id']
@@ -129,7 +133,8 @@ theorem prod_limit' (s: D → X × Y) (x: X × Y) :
    converges to x. -/
 
 theorem mem_closure_of_exists_net (A: Set X) (x : X):
-  (∃ (D: Type*) (_: DirectedSet D) (s: D → X), (∀ (d: D), s d ∈ A) ∧ Limit s x) → x ∈ closure A:= by
+  (∃ (D: Type*) (_: DirectedSet D) (s: D → X),
+    (∀ (d: D), s d ∈ A) ∧ Limit s x) → x ∈ closure A:= by
     rw [mem_closure_iff_exists_filter]
     intro cond
     rcases cond with ⟨D, h, s, sinA, limitsx⟩
@@ -139,7 +144,8 @@ theorem mem_closure_of_exists_net (A: Set X) (x : X):
       ((limnet_iff_limfilter s x).mp limitsx))
 
 theorem mem_closure_iff_exists_net (A: Set X) (x : X):
-  x ∈ closure A ↔ ∃ (D: Type u_1) (_: DirectedSet D) (s: D → X), (∀ (d: D), s d ∈ A) ∧ Limit s x := by
+  x ∈ closure A ↔ ∃ (D: Type u_1) (_: DirectedSet D) (s: D → X),
+    (∀ (d: D), s d ∈ A) ∧ Limit s x := by
     constructor
     · rw [mem_closure_iff_exists_filter]
       intro cond
@@ -281,6 +287,17 @@ theorem limfunnet_of_continuousAt (f: X → Y) (x : X) {s: D → X}:
     simp only [comp_apply]
     assumption
 
+theorem limfunnet_of_continuousAt' {Z: Type*} [TopologicalSpace Z]
+  {s: D → X} {t: D → Y} {x: X} {y: Y} {f: X × Y → Z} :
+  ContinuousAt f (x,y) → Limit s x → Limit t y →
+  Limit (fun (d: D) ↦ f ((s d), (t d))) (f (x, y)) := by
+    intro contf slimitx tlimity
+    let S: D → X × Y := fun (d: D) ↦ (s d, t d)
+    have Slimitxy: Limit S (x,y) := by
+      rw [prod_limit']
+      exact And.intro slimitx tlimity
+    exact limfunnet_of_continuousAt f (x,y) contf Slimitxy
+
 theorem continuous_iff_image_of_net_converges (f: X → Y) (x : X):
   ContinuousAt f x ↔ ∀ (D: Type u_1) (_: DirectedSet D) (s : D → X),
     Limit s x → Limit (f ∘ s) (f x) := by
@@ -303,6 +320,105 @@ theorem continuous_iff_image_of_net_converges (f: X → Y) (x : X):
         simp only [net_of_filter, comp_apply] at this
         assumption
       exact mem_of_superset d.2.2 this
+
+/- ### Characterization of topologies in term of nets ### -/
+
+theorem same_topology_iff_same_convergent_nets {X: Type*} [T₁: TopologicalSpace X]
+  [T₂: TopologicalSpace X] :
+    T₁ = T₂ ↔ ∀ (D: Type u_5) (_: DirectedSet D) (s: D → X) (x: X),
+    (@Limit X D T₁ _ s x ↔ @Limit X D T₂ _ s x) := by
+      constructor
+      · intro eqtop
+        intro D Ddir s x
+        rw [eqtop]
+      · intro cond
+        rw [TopologicalSpace.ext_iff_isClosed]
+        intro C
+        rw [@isClosed_iff_limit_self X T₁ C, @isClosed_iff_limit_self X T₂ C]
+        simp only [cond]
+
+theorem IsPiTopology_iff_pointwise_convergence {ι: Type*} {π : ι → Type*}
+  [T : (i : ι) → TopologicalSpace (π i)] [t: TopologicalSpace ((i : ι) → π i)] :
+  t = Pi.topologicalSpace ↔ ∀ (D: Type (max u_5 u_6)) (_: DirectedSet D)
+  (s: D → ((i : ι) → π i)) (x: ((i : ι) → π i)),
+  (Limit s x ↔ ∀ (i: ι), Limit (fun (d: D) ↦ s d i) (x i)) := by
+    constructor
+    · intro Pitop D Ddir s x
+      have := prod_limit s x
+      rw [← Pitop] at this
+      exact this
+    · intro cond
+      rw [@same_topology_iff_same_convergent_nets _ t Pi.topologicalSpace]
+      intro D Ddir s x
+      rw [cond D Ddir s x, prod_limit]
+
+theorem induced_limit {X Y: Type*} (f: X → Y) [tY: TopologicalSpace Y]
+  (s: D → X) (x: X) :
+    @Limit X D (TopologicalSpace.induced f tY) _ s x ↔
+    Limit (f ∘ s) (f x) := by
+      constructor
+      · intro slimitx
+        have: @Continuous X Y (TopologicalSpace.induced f tY) tY f := by
+          exact continuous_iff_le_induced.mpr
+            (le_refl (TopologicalSpace.induced f tY))
+        rw [@continuous_iff_continuousAt X Y (TopologicalSpace.induced f tY) tY] at this
+        exact @limfunnet_of_continuousAt X Y D (TopologicalSpace.induced f tY)
+          tY _ f x s (this x) slimitx
+      · intro fslimitfx
+        intro U Unhds
+        rw [mem_nhds_induced] at Unhds
+        rcases Unhds with ⟨V, Vnhds, prefVsubU⟩
+        rcases fslimitfx V Vnhds with ⟨d₀, eq⟩
+        use d₀
+        intro d d₀led
+        apply prefVsubU
+        rw [mem_preimage]
+        exact eq d d₀led
+
+theorem IsinducedTopology_iff {X Y: Type*} (f: X → Y) [tX: TopologicalSpace X]
+  [tY: TopologicalSpace Y] :
+  tX = TopologicalSpace.induced f tY ↔ ∀ (D: Type u_5) (_: DirectedSet D)
+  (s: D → X) (x: X), (Limit s x ↔ Limit (f ∘ s) (f x)) := by
+    constructor
+    · intro indudtop D Ddir s x
+      rw [indudtop]
+      exact induced_limit f s x
+    · intro cond
+      rw [@same_topology_iff_same_convergent_nets _ tX (TopologicalSpace.induced f tY)]
+      intro D Ddir s x
+      rw [cond D Ddir s x, induced_limit]
+
+/- ### Operations on limits ### -/
+
+/- Limit of constant net -/
+theorem lim_of_cte (x: X): Limit (fun (_: D) ↦ x) x := by
+  intro U Unhds
+  use default
+  intro d defled
+  exact mem_of_mem_nhds Unhds
+
+/- Sum of convergent nets is convergent -/
+theorem lim_of_sum_eq_sum_of_lim [Add X] [h: ContinuousAdd X]
+  {s t: D → X} {x y: X}:
+  Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) + (t d)) (x + y) := by
+    exact limfunnet_of_continuousAt'
+      (continuous_iff_continuousAt.mp h.continuous_add (x, y))
+
+/- Difference of convergent nets is convergent -/
+theorem lim_of_sub_eq_sub_of_lim [Sub X] [h: ContinuousSub X]
+  {s t: D → X} {x y: X} :
+  Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) - (t d)) (x - y) := by
+    exact limfunnet_of_continuousAt'
+      (continuous_iff_continuousAt.mp h.continuous_sub (x, y))
+
+/- Product of scalar and convergent nets is convergent -/
+theorem prod_num_conv {R: Type*} [TopologicalSpace R] [SMul R X]
+  [h: ContinuousSMul R X] {x: X} {s: D → X} (r: R):
+  Limit s x → Limit (fun (d: D) ↦ r • (s d)) (r • x) := by
+    intro slimitx
+    exact limfunnet_of_continuousAt'
+      (continuous_iff_continuousAt.mp h.continuous_smul (r, x))
+        (lim_of_cte r) slimitx
 
 /- ### T2 Spaces ### -/
 
@@ -358,3 +474,149 @@ theorem complete_iff_netcomplete:
       · exact mem_univ x
       · rw [@limfilter_iff_limnet Z _ F cauchyF.1 x]
         assumption
+
+/- Completeness in metric spaces is equivalent to the statement that every Cauchy sequence is convergent -/
+
+variable {M: Type*} [PseudoMetricSpace M]
+
+theorem complete_iff_seqcomplete :
+  CompleteSpace M ↔ ∀ (s: ℕ → M), CauchyNet s → ∃ (x: M), Limit s x := by
+    constructor
+    · intro completeX s cauchys
+      rw [cauchynet_iff_cauchyfilter] at cauchys
+      rcases completeX.complete cauchys with ⟨x, limitFx⟩
+      use x
+      rw [limnet_iff_limfilter]
+      assumption
+    · intro cauchyconv
+      apply Metric.complete_of_cauchySeq_tendsto
+      simp only [cauchySeq_iff_cauchynet, ← limit_iff_tendsto]
+      assumption
+
+/- ### Construction of a sequence from a net ### -/
+
+/- Given a Cauchy net t: D → X in a metric space X and a positive sequence s: ℕ → ℝ, we can extract
+   an (strictly) increasing sequence r : ℕ → D, such that for any d, e in D with r n ≤ d, e, we have that
+   dist (t d) (t e) < s n. -/
+
+def seq_of_net (t: D → M) (s: ℕ → ℝ): ℕ → D := fun k ↦ by
+  classical
+  exact match k with
+  | 0 => if h: ∃ d₀, (∀ (d e : D), d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s 0) then
+     Classical.choose h else default
+  | n + 1 => if h: ∃ (d₀: D), ((seq_of_net t s n) ≤ d₀ ∧
+    ((∀ (d e : D), d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s (n + 1)))) then
+     Classical.choose h else default
+
+/- If the net t: D → X is Cauchy, then seqfromnet satisfies what we want -/
+lemma seq_of_net_def (t: D → M) (s: ℕ → ℝ) (spos: ∀ (n: ℕ), 0 < s n)
+  (h: CauchyNet t):
+    ∀ (n: ℕ), (∀ (d e : D), seq_of_net t s n ≤ d →
+    seq_of_net t s n ≤ e → dist (t d) (t e) < s n) := by
+      intro n d e led lee
+      rw [cauchy_metric_iff] at h
+      by_cases nz: n = 0
+      · have cond := h (s 0) (spos 0)
+        rw [nz] at led lee
+        dsimp only [seq_of_net] at *
+        rw [dif_pos cond] at *
+        rw [nz]
+        exact Classical.choose_spec cond d e led lee
+      · rcases Nat.exists_eq_succ_of_ne_zero nz with ⟨m, neqm1⟩
+        rw [Nat.succ_eq_add_one] at neqm1
+        rw [neqm1] at led lee
+        have cond : ∃ (d₀: D), ((seq_of_net t s m) ≤ d₀ ∧
+          ((∀ (d e : D), d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s (m + 1)))) := by
+            rcases h (s (m + 1)) (spos (m + 1)) with ⟨d₁, eq⟩
+            rcases directed' d₁ (seq_of_net t s m) with ⟨d₀, d₁led₀, led₀⟩
+            use d₀
+            constructor
+            · assumption
+            · intro d e d₀led d₀lee
+              exact eq d e (le_trans d₁led₀ d₀led) (le_trans d₁led₀ d₀lee)
+        dsimp only [seq_of_net] at *
+        rw [dif_pos cond] at *
+        rw [neqm1]
+        exact (Classical.choose_spec cond).2 d e led lee
+
+/- The defined sequence is increasing -/
+lemma seq_of_net_le_succ (t: D → M) (s: ℕ → ℝ) (spos: ∀ (n: ℕ), 0 < s n)
+  (h: CauchyNet t):
+    ∀ (n: ℕ), seq_of_net t s n ≤ seq_of_net t s (n + 1) := by
+      intro n
+      rw [cauchy_metric_iff] at h
+      have cond : ∃ d₀, seq_of_net t s n ≤ d₀ ∧
+        ∀ (d e : D),  d₀ ≤ d → d₀ ≤ e → dist (t d) (t e) < s (n + 1) := by
+          rcases h (s (n + 1)) (spos (n + 1)) with ⟨d₁, eq⟩
+          rcases directed' (seq_of_net t s n) d₁ with ⟨d₀, seqmled₀, d₁led₀⟩
+          use d₀
+          constructor
+          · assumption
+          · intro d e d₀led d₀lee
+            exact eq d e (le_trans d₁led₀ d₀led) (le_trans d₁led₀ d₀lee)
+      dsimp only [seq_of_net]
+      rw [dif_pos cond]
+      exact (Classical.choose_spec cond).1
+
+lemma seq_of_net_monotone (t: D → M) (s: ℕ → ℝ) (spos: ∀ (n: ℕ), 0 < s n)
+  (h: CauchyNet t):
+    Monotone (seq_of_net t s) := by
+      intro n m nlem
+      induction' m with m ih
+      · rw [Nat.le_zero] at nlem
+        rw [nlem]
+      · rw [Nat.le_succ_iff_eq_or_le] at nlem
+        rcases nlem with neqm1 | nlem
+        · rw [Nat.succ_eq_add_one] at neqm1
+          rw [← neqm1]
+        · exact le_trans (ih nlem) (seq_of_net_le_succ t s spos h m)
+
+/- If if s has limit 0 , then the sequence t ∘ (seqfromnet t s) is a Cauchy sequence with the porperty that if
+   it converges, then so does t and to the same point -/
+
+lemma seq_of_net_cauchy (t: D → M) (s: ℕ → ℝ) (spos: ∀ (n: ℕ), 0 < s n)
+  (h: CauchyNet t) (slimitz: Limit s 0):
+    CauchyNet (t ∘ seq_of_net t s) := by
+      rw [cauchy_metric_iff]
+      intro ε εpos
+      rw [limit_metric_iff] at slimitz
+      rcases slimitz ε εpos with ⟨n₀, eq⟩
+      have sn₀leε : s n₀ < ε := by
+        have := eq n₀ (le_refl n₀)
+        rw [dist_zero_right, Real.norm_eq_abs] at this
+        exact lt_of_abs_lt this
+      use n₀
+      intro n m n₀len n₀lem
+      have := seq_of_net_def t s spos h n₀ (seq_of_net t s n) (seq_of_net t s m)
+        (seq_of_net_monotone t s spos h n₀len) (seq_of_net_monotone t s spos h n₀lem)
+      exact lt_trans this sn₀leε
+
+lemma limnet_of_seq_of_net (t: D → M) (s: ℕ → ℝ) (spos: ∀ (n: ℕ), 0 < s n)
+  (h: CauchyNet t) (slimitz: Limit s 0) (x: M):
+    Limit (t ∘ seq_of_net t s) x → Limit t x := by
+      intro tseqlimitx
+      rw [limit_metric_iff] at *
+      intro ε εpos
+      rcases tseqlimitx (ε/2) (by linarith) with ⟨n₀, eq⟩
+      rcases slimitz (ε/2) (by linarith) with ⟨n₁, eq'⟩
+      have sleε2 : s (max n₀ n₁) < ε/2 := by
+        have := eq' (max n₀ n₁) (le_max_right n₀ n₁)
+        rw [dist_zero_right, Real.norm_eq_abs] at this
+        exact lt_of_abs_lt this
+      use seq_of_net t s (max n₀ n₁)
+      intro d seqfled
+      calc
+        dist (t d) x ≤ dist (t d) (t (seq_of_net t s (max n₀ n₁))) +
+        dist (t (seq_of_net t s (max n₀ n₁))) x := by
+          exact dist_triangle (t d) (t (seq_of_net t s (max n₀ n₁))) x
+        _ < ε/2 + dist (t (seq_of_net t s (max n₀ n₁))) x := by
+          rw [add_lt_add_iff_right]
+          have := seq_of_net_def t s spos h (max n₀ n₁) d
+             (seq_of_net t s (max n₀ n₁)) seqfled
+             (le_refl (seq_of_net t s (max n₀ n₁)))
+          exact lt_trans this sleε2
+        _ < ε/2 + ε/2 := by
+          rw [add_lt_add_iff_left]
+          exact eq (max n₀ n₁) (le_max_left n₀ n₁)
+        _ = ε := by
+          linarith

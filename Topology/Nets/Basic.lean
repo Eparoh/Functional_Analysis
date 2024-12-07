@@ -1,4 +1,5 @@
 import Topology.Nets.DirectedSet
+import Mathlib.Data.Fintype.Lattice
 
 open Set Filter Topology Function DirectedSet
 
@@ -6,7 +7,7 @@ set_option trace.Meta.Tactic.simp false
 
 namespace Net
 
-variable {X D E F: Type*} [TopologicalSpace X] [DirectedSet D] [DirectedSet E]
+variable {X D E F Z: Type*} [TopologicalSpace X] [DirectedSet D] [DirectedSet E] [UniformSpace Z]
 
 /- ### Definitions ### -/
 
@@ -29,11 +30,58 @@ def Subnet {X: Type*} (s: D → X) (s': E → X) : Prop :=
 
 /- We say that a net s: D → X on a uniform space X is Cauchy if for every U in the uniformity
    of X thre exists some d₀ in I such that (s d, s e) ∈ U for all d₀ ≤ d, e -/
-def CauchyNet {X: Type*} [UniformSpace X] (s: D → X): Prop :=
-   ∀ U ∈ uniformity X, ∃ (d₀: D), ∀ (d e: D), (d₀ ≤ d → d₀ ≤ e → (s d, s e) ∈ U)
+def CauchyNet (s: D → Z): Prop :=
+   ∀ U ∈ uniformity Z, ∃ (d₀: D), ∀ (d e: D), (d₀ ≤ d → d₀ ≤ e → (s d, s e) ∈ U)
 
-def CompleteNet (X: Type*) [UniformSpace X]: Prop :=
-   ∀ (D: Type u_5) (_: DirectedSet D) (s : D → X), (CauchyNet s → ∃ (x: X), Limit s x)
+def CompleteNet (X: Type*) [UniformSpace X] : Prop :=
+   ∀ (D: Type u_6) (_: DirectedSet D) (s : D → X), (CauchyNet s → ∃ (x: X), Limit s x)
+
+/- ### Equivalence with TendsTo and CauchySeq ### -/
+
+theorem limit_iff_tendsto (s: D → X) (x: X) : Limit s x ↔ Tendsto s Filter.atTop (𝓝 x) := by
+  simp only [tendsto_nhds, mem_atTop_sets, ge_iff_le, mem_preimage]
+  unfold Limit
+  constructor
+  · intro h U Uopen xinU
+    rcases h U (IsOpen.mem_nhds Uopen xinU) with ⟨d₀, eq⟩
+    use d₀
+  · intro h U Unhds
+    rw [mem_nhds_iff] at Unhds
+    rcases Unhds with ⟨V, VsubU, Vopen, xinV⟩
+    rcases h V Vopen xinV with ⟨d₀, eq⟩
+    use d₀
+    intro d d₀led
+    apply VsubU
+    exact eq d d₀led
+
+theorem cauchySeq_iff_cauchynet
+  (f: D → Z) : CauchySeq f ↔ CauchyNet f := by
+    unfold CauchySeq CauchyNet
+    rw [cauchy_iff']
+    simp only [mem_map, mem_atTop_sets, ge_iff_le, mem_preimage]
+    constructor
+    · intro h U Uinunif
+      rcases h.2 U Uinunif with ⟨A, eq⟩
+      rcases eq.1 with ⟨d₀, inA⟩
+      use d₀
+      intro d e d₀led d₀lee
+      exact eq.2 (f d) (inA d d₀led) (f e) (inA e d₀lee)
+    · intro h
+      constructor
+      · exact map_neBot
+      · intro U Uinunif
+        rcases h U Uinunif with ⟨d₀, eq⟩
+        use f '' {d: D | d₀ ≤ d}
+        simp only [mem_image, Set.mem_setOf_eq]
+        constructor
+        · use d₀
+          intro d d₀led
+          use d
+        · intro x condx y condy
+          rcases condx with ⟨dx, d₀ledx, fdxeqx⟩
+          rcases condy with ⟨dy, d₀ledy, fdyeqy⟩
+          rw [← fdxeqx, ← fdyeqy]
+          exact eq dx dy d₀ledx d₀ledy
 
 /- ### Basic results about subnets ### -/
 
@@ -116,7 +164,7 @@ theorem subnet_clusterpoint_implies_net {s : D → X} {s' : E → X} {x : X} :
 
 /- A point x is an accumulation point of a net s iff there exists a subnet that converges to x -/
 theorem clpoint_iff_exists_subnet {D: Type*} [h: DirectedSet D] (s: D → X) (x : X) :
-  ClusterPt s x ↔ ∃ (E: Type (max u_1 u_5)) (_: DirectedSet E) (s': E → X), (Subnet s s' ∧ Limit s' x) := by
+  ClusterPt s x ↔ ∃ (E: Type (max u_1 u_6)) (_: DirectedSet E) (s': E → X), (Subnet s s' ∧ Limit s' x) := by
     classical
     constructor
     · intro t
@@ -181,27 +229,13 @@ theorem clpoint_iff_exists_subnet {D: Type*} [h: DirectedSet D] (s: D → X) (x 
 
 /- ### Characterization of convergence and Cauchy in metric spaces ### -/
 
-variable {M: Type*} [PseudoMetricSpace M]
+variable {M Z: Type*} [PseudoMetricSpace M] [UniformSpace Z]
 
 /- Characterization of convergence in a metric space -/
 lemma limit_metric_iff (s: D → M) (x: M):
   Limit s x ↔
   ∀ (ε: ℝ), (0 < ε → ∃ (d₀: D), (∀ (d: D), d₀ ≤ d → dist (s d) x < ε)) := by
-    constructor
-    · intro limitsx
-      intro ε εpos
-      have:= limitsx (Metric.ball x ε) (by exact Metric.ball_mem_nhds x εpos)
-      simp only [Metric.mem_ball] at this
-      exact this
-    · intro cond U Unhds
-      rw [Metric.mem_nhds_iff] at Unhds
-      rcases Unhds with ⟨ε, εpos, ballsubU⟩
-      rcases cond ε εpos with ⟨d₀, eq⟩
-      use d₀
-      intro d d₀led
-      apply ballsubU
-      rw [Metric.mem_ball]
-      exact eq d d₀led
+    simp only [limit_iff_tendsto, Metric.tendsto_nhds, Filter.eventually_atTop]
 
 /- Characterization of a Cauchy net in a metric space -/
 lemma cauchy_metric_iff (s: D → M):
@@ -243,3 +277,39 @@ lemma Nat_cauchy_metric_iff (s: ℕ → M):
       · rw [Nat.not_le] at h
         rw [dist_comm]
         exact eq m n n₀lem (le_of_lt h)
+
+/- ### Some results about Cauchy nets ### -/
+
+/- Any convergent net in a uniform space is Cauchy -/
+theorem cauchy_of_exists_lim {s: D → Z} (h: ∃ (x: Z), Limit s x):
+  CauchyNet s := by
+    intro U Uunif
+    rcases comp_mem_uniformity_sets Uunif with ⟨V, Vunif, VoVsubU⟩
+    rcases h with ⟨x, slimitx⟩
+    rcases slimitx {y: Z | (x, y) ∈ V} (by exact mem_nhds_left x Vunif) with ⟨d₁, eq1⟩
+    rcases slimitx {y: Z | (y, x) ∈ V} (by exact mem_nhds_right x Vunif) with ⟨d₂, eq2⟩
+    rcases directed' d₁ d₂ with ⟨d₀, d₁led₀, d₂led₀⟩
+    use d₀
+    intro d e d₀led d₀lee
+    apply VoVsubU
+    rw [mem_compRel]
+    use x
+    constructor
+    · have:= eq2 d (le_trans d₂led₀ d₀led)
+      rw [Set.mem_setOf_eq] at this
+      assumption
+    · have:= eq1 e (le_trans d₁led₀ d₀lee)
+      rw [Set.mem_setOf_eq] at this
+      assumption
+
+theorem lim_of_subnet_of_cauchynet {s: D → Z} (scauchy: CauchyNet s) :
+  (∃ (E: Type*) (h: DirectedSet E) (s': E → Z) (x: Z), Subnet s' s ∧ Limit s' x) →
+  Limit s x := by
+    sorry
+
+/- Any Cauchy sequence in a metric space is bounded -/
+theorem cauchyNet_bdd {s: ℕ → M}:
+  CauchyNet s → ∃ R > 0, ∀ (m n : ℕ), dist (s m) (s n) < R := by
+    intro cauchys
+    rw [← cauchySeq_iff_cauchynet] at cauchys
+    exact cauchySeq_bdd cauchys

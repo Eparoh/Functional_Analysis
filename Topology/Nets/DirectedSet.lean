@@ -189,7 +189,7 @@ def DirectedSet.instFiniteInterLeft {X F: Type*} {A: F → Set X} (K := univ) : 
 
 /- Family of finite subsets of a type is directed by inclusion -/
 
-instance DirectedSet.instFiniteSubsets {X: Type*}: DirectedSet (Finset X) where
+instance DirectedSet.instFinset {X: Type*}: DirectedSet (Finset X) where
   default := ∅
   directed := by
     classical
