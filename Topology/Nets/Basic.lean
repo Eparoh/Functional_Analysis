@@ -86,7 +86,7 @@ theorem cauchySeq_iff_cauchynet
 /- ### Basic results about subnets ### -/
 
 /- If a net s converges to a point x in X, then every subnet of s converges to x. -/
-theorem subnet_same_limit {s : D → X} {s' : E → X} {x : X} :
+theorem limsubnet_of_limnet {s : D → X} {s' : E → X} {x : X} :
   Subnet s s' → Limit s x → Limit s' x := by
     intro subnet slimitx
     unfold Limit at *
@@ -103,8 +103,56 @@ theorem subnet_same_limit {s : D → X} {s' : E → X} {x : X} :
     have := eq_d (i e') this
     exact this
 
+theorem cauchysubnet_of_cauchynet {s : D → Z} {s' : E → Z} :
+  Subnet s s' → CauchyNet s → CauchyNet s' := by
+    intro subnetss' cauchys
+    unfold CauchyNet at *
+    rcases subnetss' with ⟨i, iincr, s'eqsi⟩
+    simp only [s'eqsi, comp_apply]
+    intro U Uinunif
+    rcases cauchys U Uinunif with ⟨d₀, eq⟩
+    rcases iincr d₀ with ⟨e₀, eq'⟩
+    use e₀
+    intro e e' e₀lee e₀lee'
+    exact eq (i e) (i e') (eq' e e₀lee) (eq' e' e₀lee')
+
+theorem lim_of_subnet_of_subnet {D: Type u_1} [DirectedSet D]
+  (s: D → X) (x: X) :
+    (∀ (E: Type u_1) (_: DirectedSet E) (s': E → X),
+    Subnet s s' →  ∃ (F: Type u_1) (_: DirectedSet F) (s'': F → X),
+    (Subnet s' s'' ∧ Limit s'' x)) →
+    Limit s x := by
+      classical
+      intro cond
+      unfold Limit
+      by_contra! xnolimits
+      rcases xnolimits with ⟨U, Unhds, eq⟩
+      let i: D → D := fun (d: D) ↦
+        if h: ∃ e, (d ≤ e ∧ s e ∉ U) then Classical.choose h else default
+      have iincr: ∀ (d : D), ∃ e₀, ∀ (e : D), e₀ ≤ e → d ≤ i e := by
+        intro d
+        use d
+        intro d' dled'
+        unfold i
+        rw [dif_pos (eq d')]
+        exact le_trans dled' (Classical.choose_spec (eq d')).1
+      let s': D → X := s ∘ i
+      have subnetss' : Subnet s s' := by
+        use i
+      rcases cond D _ s' subnetss' with ⟨F, _, ⟨s'', subnets'', s''limitx⟩⟩
+      rcases subnets'' with ⟨i', i'incr, s''eq⟩
+      rcases s''limitx U Unhds with ⟨d₀, s''cond⟩
+      simp only [s''eq, s', comp_apply] at s''cond
+      have sii'd₀inU := s''cond d₀ (le_refl d₀)
+      have sii'd₀ninU := (Classical.choose_spec (eq (i' d₀))).2
+      have : i (i' d₀) = Classical.choose (eq (i' d₀)) := by
+        unfold i
+        rw [dif_pos (eq ((i' d₀)))]
+      rw [← this] at sii'd₀ninU
+      contradiction
+
 /- Subsequences are subnets -/
-theorem subsequence_is_subnet {X: Type*} (s s' : ℕ → X) :
+theorem subnet_of_subsequence {X: Type*} (s s' : ℕ → X) :
   (∃ (i: ℕ → ℕ), StrictMono i ∧ s' = s ∘ i) → Subnet s s' := by
     intro h
     unfold Subnet
@@ -119,18 +167,18 @@ theorem subsequence_is_subnet {X: Type*} (s s' : ℕ → X) :
 
 theorem shift_subsequence {X: Type*} (s : ℕ → X) (k: ℕ):
   Subnet s (fun (n: ℕ) ↦ s (n + k)) := by
-    apply subsequence_is_subnet
+    apply subnet_of_subsequence
     use fun (n: ℕ) ↦ n + k
     constructor
     · intro n m nltm
       exact Nat.add_lt_add_right nltm k
     · rfl
 
-theorem shift_subsequence_conv (s : ℕ → X) (k: ℕ) {x: X}:
+theorem netlim_iff_shift_subsequence_lim (s : ℕ → X) (k: ℕ) {x: X}:
   Limit s x ↔ Limit (fun (n: ℕ) ↦ s (n + k)) x := by
     constructor
     · intro slimitx
-      exact subnet_same_limit (shift_subsequence s k) slimitx
+      exact limsubnet_of_limnet (shift_subsequence s k) slimitx
     · intro slimitx
       intro U Unhds
       rcases slimitx U Unhds with ⟨d₀, eq⟩
@@ -138,7 +186,27 @@ theorem shift_subsequence_conv (s : ℕ → X) (k: ℕ) {x: X}:
       intro d d₀kled
       have:= eq (d - k) (Nat.le_sub_of_add_le d₀kled)
       dsimp at this
-      rw [← tsub_tsub_assoc (le_of_add_le_right d₀kled) (le_refl k), Nat.sub_self, Nat.sub_zero] at this
+      rw [← tsub_tsub_assoc (le_of_add_le_right d₀kled) (le_refl k),
+          Nat.sub_self, Nat.sub_zero] at this
+      assumption
+
+theorem cauchynet_iff_shift_subsequence_cauchy (s : ℕ → Z) (k: ℕ):
+  CauchyNet s ↔ CauchyNet (fun (n: ℕ) ↦ s (n + k)) := by
+    constructor
+    · exact cauchysubnet_of_cauchynet (shift_subsequence s k)
+    · intro cauchyshift
+      unfold CauchyNet at *
+      dsimp at cauchyshift
+      intro U Uinunif
+      rcases cauchyshift U Uinunif with ⟨n₀, eq⟩
+      use n₀ + k
+      intro n m n₀len n₀lem
+      have := eq (n - k) (m - k) (Nat.le_sub_of_add_le n₀len)
+        (Nat.le_sub_of_add_le n₀lem)
+      rw [← tsub_tsub_assoc (le_of_add_le_right n₀len) (le_refl k),
+          Nat.sub_self, Nat.sub_zero, ← tsub_tsub_assoc
+          (le_of_add_le_right n₀lem) (le_refl k),
+          Nat.sub_self, Nat.sub_zero] at this
       assumption
 
 /- ### Basic results about cluster points ### -/
@@ -229,7 +297,7 @@ theorem clpoint_iff_exists_subnet {D: Type*} [h: DirectedSet D] (s: D → X) (x 
 
 /- ### Characterization of convergence and Cauchy in metric spaces ### -/
 
-variable {M Z: Type*} [PseudoMetricSpace M] [UniformSpace Z]
+variable {M: Type*} [PseudoMetricSpace M]
 
 /- Characterization of convergence in a metric space -/
 lemma limit_metric_iff (s: D → M) (x: M):
@@ -302,10 +370,34 @@ theorem cauchy_of_exists_lim {s: D → Z} (h: ∃ (x: Z), Limit s x):
       rw [Set.mem_setOf_eq] at this
       assumption
 
-theorem lim_of_subnet_of_cauchynet {s: D → Z} (scauchy: CauchyNet s) :
-  (∃ (E: Type*) (h: DirectedSet E) (s': E → Z) (x: Z), Subnet s' s ∧ Limit s' x) →
-  Limit s x := by
-    sorry
+theorem lim_of_clpoint_of_cauchynet {s: D → Z} (scauchy: CauchyNet s) (x: Z) :
+  ClusterPt s x → Limit s x := by
+    intro cond
+    unfold ClusterPt at cond
+    intro U Unhds
+    rw [mem_nhds_uniformity_iff_right] at Unhds
+    rcases comp_mem_uniformity_sets Unhds with ⟨W, Winunif, WWsub⟩
+    rcases scauchy W Winunif with ⟨d₀, eq⟩
+    use d₀
+    intro d d₀led
+    rcases cond d (UniformSpace.ball x W)
+      (UniformSpace.ball_mem_nhds x Winunif) with ⟨e, dlee, seinWball⟩
+    unfold UniformSpace.ball at seinWball
+    rw [mem_preimage] at seinWball
+    have : (x, s d) ∈ compRel W W := by
+      rw [mem_compRel]
+      use s e
+      exact And.intro seinWball (eq e d (le_trans d₀led dlee) d₀led)
+    have := WWsub this
+    rw [Set.mem_setOf_eq] at this
+    exact this (rfl)
+
+theorem lim_of_subnet_of_cauchynet {s: D → Z} (scauchy: CauchyNet s) (x: Z) :
+  (∃ (E: Type (max u_2 u_5)) (_: DirectedSet E) (s': E → Z),
+  Subnet s s' ∧ Limit s' x) → Limit s x := by
+    intro cond
+    rw [← clpoint_iff_exists_subnet s x] at cond
+    exact lim_of_clpoint_of_cauchynet scauchy x cond
 
 /- Any Cauchy sequence in a metric space is bounded -/
 theorem cauchyNet_bdd {s: ℕ → M}:
