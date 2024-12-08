@@ -1,4 +1,5 @@
 import Topology.Nets.Theorems
+import Mathlib.Topology.Algebra.InfiniteSum.Group
 
 noncomputable section
 
@@ -8,7 +9,9 @@ open Set Filter Topology Function DirectedSet
 
 namespace Net
 
-variable {I X Z: Type*} [AddCommMonoid X] [TopologicalSpace X] [AddCommMonoid Z] [UniformSpace Z]
+variable {I X: Type*} [AddCommMonoid X] [TopologicalSpace X]
+variable {Z: Type*} [AddCommMonoid Z] [UniformSpace Z]
+variable {W: Type*} [AddCommGroup W] [UniformSpace W]
 
 /- ### Definitions ### -/
 
@@ -59,11 +62,7 @@ theorem cauchysum_of_summable {f: I → Z} (h: SummableNet f):
   CauchySumNet f := by
     exact cauchy_of_exists_lim h
 
-theorem summable_iff_cauchysum {I: Type u_3} [h: CompleteSpace Z] {f: I → Z} :
+theorem summable_iff_cauchysum [h: CompleteSpace W] {f: I → W} :
   SummableNet f ↔ CauchySumNet f := by
-    rw [complete_iff_netcomplete] at h
-    constructor
-    · exact cauchysum_of_summable
-    · unfold CompleteNet at h
-      exact h (Finset I) DirectedSet.instFinset
-        (fun (E: Finset I) ↦ ∑ e ∈ E, f e)
+    rw [← summable_iff_summablenet, cauchysum_iff_cauchySeqsum,
+        summable_iff_cauchySeq_finset]

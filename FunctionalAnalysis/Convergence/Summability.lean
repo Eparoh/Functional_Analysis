@@ -44,11 +44,6 @@ def AbsSummable (f: I → X): Prop :=
 
 /- ### Characterization of absolute summability ### -/
 
-theorem cauchyabssum_iff_abssummable (f: I → X) [CompleteSpace X]:
-  AbsSummable f ↔ CauchySumNet (fun (i: I) ↦ ‖f i‖) := by
-    unfold AbsSummable HasAbsSum
-    exact netsummable_iff_cauchNet_finset
-
 /- Characterization of absolute summability -/
 theorem bounded_of_cauchyNet_finset
   (f: I → X):
@@ -184,3 +179,27 @@ theorem abssummable_iff_bounded (f: I → X):
     · intro bddab
       use sSup {α: ℝ | ∃ (F: Finset I), α = ∑ (i ∈ F), ‖f i‖}
       exact hasabssum_eq_LUB_of_bounded f bddab
+
+/- ### Relation between absolute summability and summability -/
+
+theorem cauchyabssum_iff_abssummable (f: I → X) [CompleteSpace X]:
+  AbsSummable f ↔ CauchySumNet (fun (i: I) ↦ ‖f i‖) := by
+    unfold AbsSummable HasAbsSum
+    exact netsummable_iff_cauchNet_finset
+
+theorem summable_of_abssummable [CompleteSpace X] (f: I → X):
+  AbsSummable f → SummableNet f := by
+    rw [cauchyabssum_iff_abssummable, summable_iff_cauchysum,
+        cauchynet_finset_iff_vanishing_norm,
+        cauchynet_finset_iff_vanishing_norm]
+    intro cauchysum ε εpos
+    rcases cauchysum ε εpos with ⟨F₀, eq⟩
+    simp only [Real.norm_of_nonneg
+      (Finset.sum_nonneg (fun i x ↦ norm_nonneg (f i)))] at eq
+    use F₀
+    intro F interem
+    calc
+      ‖∑ i ∈ F, f i‖ ≤ ∑ i ∈ F, ‖f i‖ := by
+        exact norm_sum_le F f
+      _ < ε := by
+        exact eq F interem

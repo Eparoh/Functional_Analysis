@@ -305,14 +305,13 @@ variable {M: Type*} [PseudoMetricSpace M]
 /- Characterization of convergence in a metric space -/
 lemma limit_metric_iff (s: D → M) (x: M):
   Limit s x ↔
-  ∀ (ε: ℝ), (0 < ε → ∃ (d₀: D), (∀ (d: D), d₀ ≤ d → dist (s d) x < ε)) := by
+  ∀ ε > 0, ∃ (d₀: D), (∀ (d: D), d₀ ≤ d → dist (s d) x < ε) := by
     simp only [limit_iff_tendsto, Metric.tendsto_nhds, Filter.eventually_atTop]
 
 /- Characterization of a Cauchy net in a metric space -/
 lemma cauchy_metric_iff (s: D → M):
   CauchyNet s ↔
-  ∀ (ε: ℝ), (0 < ε →
-    ∃ (d₀: D), (∀ (d e: D), d₀ ≤ d → d₀ ≤ e → dist (s d) (s e) < ε)) := by
+  ∀ ε > 0, ∃ (d₀: D), (∀ (d e: D), d₀ ≤ d → d₀ ≤ e → dist (s d) (s e) < ε) := by
     constructor
     · intro sCauchy
       intro ε εpos
