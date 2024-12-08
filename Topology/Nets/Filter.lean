@@ -350,7 +350,7 @@ theorem limfilter'_implies_limnet (F: Filter X) [NeBot F] (A: Set X) (h: A ∈ F
     /- If x is a limit point of F, then we know it is a limit point of NetF and as directedset_of_filter' is a subnet the result is obvious. -/
     intro limitFx
     rw [limfilter_iff_limnet] at limitFx
-    exact subnet_same_limit (net_of_filter'_subnet F A h) limitFx
+    exact limsubnet_of_limnet (net_of_filter'_subnet F A h) limitFx
 
 theorem limnet_of_filter_nhds (x: X): Limit (net_of_filter (𝓝 x)) x := by
   rw [limnet_iff_limfilter, ← filter_of_net_of_filter]

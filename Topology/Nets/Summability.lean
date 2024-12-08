@@ -24,7 +24,7 @@ def CauchySumNet (f: I → Z): Prop :=
 /- ### Summable = NetSummable ### -/
 
 /- A function is summable iff it is net summable -/
-theorem hasSum_iff_hasSumnet (f: I → X) (x: X) :
+theorem hassum_iff_hassumnet (f: I → X) (x: X) :
   HasSum f x ↔ HasSumNet f x := by
     unfold HasSum HasSumNet Limit
     simp only [tendsto_nhds, Filter.mem_atTop_sets,
@@ -46,7 +46,7 @@ theorem hasSum_iff_hasSumnet (f: I → X) (x: X) :
 theorem summable_iff_summablenet (f: I → X):
   Summable f ↔ SummableNet f := by
     unfold Summable SummableNet
-    simp only [hasSum_iff_hasSumnet]
+    simp only [hassum_iff_hassumnet]
 
 /- ### CauchySumable = CauchySeq ### -/
 

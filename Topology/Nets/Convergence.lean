@@ -98,19 +98,7 @@ lemma Finset.sum_Iic_zero {X: Type*} [AddCommMonoid X] (f: ℕ → X): ∑ n ≤
   rw [this]
   exact Finset.sum_singleton f 0
 
-lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {M: Type*} [AddCommMonoid M] {f : ℕ → M} {n m : ℕ}
-  (h : n ≤ m) : ∑ i ∈ Finset.Iic m, f i = ∑ i ∈ Finset.Ioc n m, f i + ∑ i ∈ Finset.Iic n, f i := by
-    have inter: ∀ (m: ℕ), Finset.Iic m = Finset.Icc 0 m := by
-      intro m
-      exact rfl
-    simp only [inter]
-    induction' n with n ih
-    · simp only [Finset.Icc_self, Finset.sum_singleton]
-      rw [Finset.sum_Ioc_add_eq_sum_Icc h]
-    · rw [Finset.sum_Icc_succ_top (Nat.le_add_left 0 (n + 1)), add_comm _ (f (n + 1)), ← add_assoc,
-          Finset.sum_Ioc_add_eq_sum_Icc h]
-      simp only [Nat.Icc_succ_left]
-      exact ih (Nat.le_of_succ_le h)
+
 
 lemma finite_geo_sum {𝕂: Type*} [RCLike 𝕂] {r: 𝕂} (rneone: r ≠ 1): (fun N ↦ ∑ n ∈ Finset.Iic N, (fun n ↦ r ^ n) n) = (fun N ↦ (r^(N + 1) - 1)/(r - 1)) := by
   ext N
@@ -158,19 +146,6 @@ theorem geo_sum_inv {a: ℝ} (onelta: 1 < a): conv_serie_to (fun (n: ℕ) ↦ 1/
 /- ### Convergence criterions ### -/
 
 /- Monotone and bounded criterion -/
-
-lemma exists_lt_LUB {s: Set ℝ} {a: ℝ} (h: IsLUB s a) (ε: ℝ) (εpos: 0 < ε) :
-  ∃ b ∈ s, a - ε < b := by
-    have := h.2
-    rw [mem_lowerBounds] at this
-    have : a - ε ∉ upperBounds s := by
-      intro aεupb
-      have := this (a - ε) aεupb
-      linarith
-    rw [mem_upperBounds] at this
-    push_neg at this
-    rcases this with ⟨b, bins, aεltb⟩
-    use b
 
 theorem mono_bounded_implies_conv (s: ℕ → ℝ): Monotone s → BddAbove (range s) → Limit s (sSup (range s)) := by
   intro smono sbdd

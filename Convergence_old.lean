@@ -1,4 +1,4 @@
-import Topology.Nets.Convergence
+import Topology.Nets.Summability
 
 set_option trace.Meta.Tactic.simp false
 
@@ -6,7 +6,7 @@ noncomputable section
 
 open Set Filter Topology Function DirectedSet Net
 
-/- ### Basic results ### -/
+/- ### Basic results about summability ### -/
 
 /- Characterization of summability in a normed space -/
 theorem hassum_normed {I X: Type*} [SeminormedAddCommGroup X] (𝕂: Type*) [RCLike 𝕂] [NormedSpace 𝕂 X]

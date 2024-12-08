@@ -1,4 +1,4 @@
-import Topology.Nets.Theorems
+import FunctionalAnalysis.Convergence.Series
 
 open Set Filter Topology Function Net
 
@@ -92,3 +92,60 @@ theorem complete_iff_seqcomplete' :
         (seq_of_net_cauchy s i ipos cauchys ilimitz) with ⟨x, limitsix⟩
       use x
       exact limnet_of_seq_of_net s i ipos cauchys ilimitz x limitsix
+
+lemma Finset.inter_sdiff_subset {I: Type*} (A B C: Finset I) [DecidableEq I] (h: C ⊆ B): C ∩ (A \ B) = ∅ := by
+  have: C ∩ (A \ B) ⊆ B ∩ (A \ B) := by
+    exact inter_subset_inter h (subset_refl (A \ B))
+  rw [Finset.inter_sdiff_self, subset_empty] at this
+  exact this
+
+variable {Y: Type*} [SeminormedAddCommGroup Y]
+
+theorem completespace_iff_conv_abs_imp_conv :
+  CompleteSpace Y ↔ ∀ (f: ℕ → Y), conv_abs_serie f → conv_serie f := by
+    constructor
+    · intro completeX f fabsconv
+      rw [convserie_iff_cauchyserie, cauchyserie_iff_vanishing_norm]
+      rw [convabsserie_iff_cauchyabsserie, cauchyserie_iff_vanishing_norm] at fabsconv
+      intro ε εpos
+      rcases fabsconv ε εpos with ⟨n₀, eq⟩
+      use n₀
+      intro n m n₀len nlem
+      calc
+        ‖∑ i ∈ Finset.Ioc n m, f i‖ ≤ ∑ i ∈ Finset.Ioc n m, ‖f i‖ := by
+          exact norm_sum_le (Finset.Ioc n m) f
+        _ = |∑ i ∈ Finset.Ioc n m, ‖f i‖| := by
+          have: ∀ i ∈ Finset.Ioc n m, 0 ≤ ‖f i‖ := by
+            intro i iin
+            exact norm_nonneg (f i)
+          exact Eq.symm (Finset.abs_sum_of_nonneg this)
+        _ < ε := by
+          rw [← Real.norm_eq_abs]
+          exact eq n m n₀len nlem
+    · intro absimpconv
+      rw [complete_iff_seqcomplete]
+      intro s scauchy
+      let F: ℕ → ℕ := seq_of_net s (fun (k: ℕ) ↦ 1/(2^k))
+      let y: ℕ → Y := fun n ↦ s (F (n + 1)) - s (F n)
+      have : ∀ (k: ℕ), ‖y k‖ ≤ 1/(2^k) := by
+        intro k
+        apply le_of_lt
+        rw [← dist_eq_norm, dist_comm]
+        exact seq_of_net_def s (fun (k: ℕ) ↦ 1/(2^k)) (by norm_num)
+          scauchy k (F k) (F (k + 1)) (by rfl)
+          (seq_of_net_monotone s (fun (k: ℕ) ↦ 1/(2^k)) (by norm_num)
+          scauchy (by linarith))
+      have yconv := absimpconv y (comparation_test_abs_geo y one_lt_two this)
+      have : ∃ (x: X), Limit (s ∘ F) x := by
+        apply conv_telescopic y (s ∘ F)
+        · intro n
+          rfl
+        · exact yconv
+      rcases this with ⟨x, sFlimitx⟩
+      use x
+      apply limit_of_seqfromnet_limit s (fun (k: ℕ) ↦ 1 / 2 ^ k)
+      · intro n
+        norm_num
+      · assumption
+      · exact limit_lessone_zero_inv (one_lt_two)
+      · exact sFlimitx
