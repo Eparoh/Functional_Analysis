@@ -305,13 +305,20 @@ lemma conv_abs_serie_iff_conv_abs_serie_real (f: ℕ → Y) :
     unfold conv_abs_serie lim_abs_serie lim_serie
     simp only [Real.norm_eq_abs, abs_norm]
 
-theorem conv_abs_serie_iff_summable (f: ℕ → Y) :
+lemma conv_abs_serie_iff_summable_abs (f: ℕ → Y) :
   conv_abs_serie f ↔ SummableNet (fun (n : ℕ) => ‖f n‖) := by
     rw [conv_abs_serie_iff_conv_abs_serie_real, Real_conv_abs_serie_iff_summable]
 
+theorem conv_abs_serie_iff_summable [NormedSpace ℝ W] [FiniteDimensional ℝ W]
+  (f: ℕ → W) : conv_abs_serie f ↔ SummableNet f := by
+    rw [summablenet_iff_abssummable, abssummable_iff_summable_abs,
+        conv_abs_serie_iff_conv_abs_serie_real, conv_abs_serie_iff_summable_abs,
+        summable_iff_summablenet]
+    simp only [norm_norm]
+
 theorem completespace_iff_conv_abs_imp_conv :
   CompleteSpace W ↔ ∀ (f: ℕ → W), conv_abs_serie f → conv_serie f := by
-    simp only [conv_abs_serie_iff_summable, conv_serie_iff_exists_tendsto,
+    simp only [conv_abs_serie_iff_summable_abs, conv_serie_iff_exists_tendsto,
                ← summable_iff_summablenet]
     exact Iff.symm NormedAddCommGroup.summable_imp_tendsto_iff_completeSpace
 
@@ -347,6 +354,48 @@ def ACauchy (f: ℕ → Y) : Prop :=
 
 /- Equivalences -/
 
+theorem NormedSpace.isBounded_iff_bounded_norm (𝕜 : Type*) {E : Type*}
+  [NontriviallyNormedField 𝕜] [SeminormedAddCommGroup E]
+  [NormedSpace 𝕜 E] {s : Set E} :
+    Bornology.IsBounded s ↔ ∃ (k : 𝕜), k ≠ 0 ∧ ∀ e ∈ s, ‖e‖ ≤ ‖k‖ := by
+      rw [NormedSpace.isBounded_iff_subset_smul_closedBall 𝕜]
+      constructor
+      · intro h
+        rcases h with ⟨k, ssub⟩
+        by_cases kz : k = 0
+        · use k + 1
+          constructor
+          · rw [kz, zero_add]
+            exact one_ne_zero
+          · intro e eins
+            rw [kz, zero_add, norm_one]
+            have := ssub eins
+            rw [Set.mem_smul_set] at this
+            rcases this with ⟨x, xinball, eeq⟩
+            rw [← eeq, norm_smul, kz, norm_zero, zero_mul]
+            exact zero_le_one' ℝ
+        · use k
+          constructor
+          · exact kz
+          · intro e eins
+            have := ssub eins
+            rw [Set.mem_smul_set] at this
+            rcases this with ⟨x, xinball, eeq⟩
+            rw [← eeq, norm_smul]
+            rw [mul_le_iff_le_one_right]
+            · exact mem_closedBall_zero_iff.mp xinball
+            · exact norm_pos_iff.mpr kz
+      · intro h
+        rcases h with ⟨k, eq⟩
+        use k
+        intro e eins
+        rw [Set.mem_smul_set]
+        use k⁻¹ • e
+        constructor
+        · rw [mem_closedBall_zero_iff, norm_smul, norm_inv]
+          apply inv_mul_le_one_of_le₀ (eq.2 e eins) (norm_nonneg k)
+        · rw [← smul_assoc, smul_eq_mul, mul_inv_cancel₀ eq.1, one_smul]
+
 theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
   BMCauchy f ↔ ACauchy f := by
     unfold BMCauchy ACauchy
@@ -357,11 +406,16 @@ theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
           (Set.Finite.isBounded (toFinite {1, -1})) rgsub
       exact BMcauchy g this
     · intro ACauchy g gbdd
-      rw [NormedSpace.isBounded_iff_subset_smul_closedBall ℝ] at gbdd
-      rcases gbdd with ⟨K, gsubK⟩
-      have: ∀ (n: ℕ), |g n| ≤ K := by
-        sorry
-      have : CauchySerie (fun (n: ℕ) ↦ K • ‖f n‖) := by
+      rw [NormedSpace.isBounded_iff_bounded_norm ℝ] at gbdd
+      rcases gbdd with ⟨K, Knez, gsubK⟩
+      have gleK: ∀ (n: ℕ), |g n| ≤ |K| := by
+        intro n
+        have : g n ∈ range g := by
+          use n
+        rw [← Real.norm_eq_abs, ← Real.norm_eq_abs]
+        exact gsubK (g n) this
+      have : CauchySerie (fun (n: ℕ) ↦ |K| • ‖f n‖) := by
+        unfold CauchySerie
         sorry
       rw [cauchyserie_iff_vanishing_norm] at *
       intro ε εpos
@@ -375,12 +429,20 @@ theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
           apply Finset.sum_congr rfl
           intro k kin
           rw [norm_smul, Real.norm_eq_abs]
-        _ ≤ ∑ i ∈ Finset.Ioc n m, K * ‖f i‖ := by
+        _ ≤ ∑ i ∈ Finset.Ioc n m, |K| * ‖f i‖ := by
           apply Finset.sum_le_sum
           intro i iin
-          sorry
-      sorry
-
+          apply mul_le_mul_of_nonneg_right (gleK i) (norm_nonneg (f i))
+        _ = ∑ i ∈ Finset.Ioc n m, |K| • ‖f i‖ := by
+          rfl
+        _ = ‖∑ i ∈ Finset.Ioc n m, |K| • ‖f i‖‖ := by
+          rw [Real.norm_eq_abs]
+          rw [Finset.abs_sum_of_nonneg']
+          intro i
+          rw [← Real.norm_eq_abs, smul_eq_mul, ← norm_smul]
+          exact norm_nonneg (K • (f i))
+        _ < ε := by
+          exact eq n m n₀len nlem
 
 theorem BMCauchy_of_SCauchy (f: ℕ → Y) :
   BMCauchy f → SCauchy f := by

@@ -1,6 +1,7 @@
 import Topology.Nets.DirectedSet
 import Mathlib.Data.Fintype.Lattice
 import Mathlib.Analysis.Normed.Group.Basic
+import Mathlib.Topology.Algebra.UniformGroup.Basic
 
 noncomputable section
 
@@ -407,6 +408,28 @@ theorem cauchyNet_bdd {s: ℕ → M}:
     intro cauchys
     rw [← cauchySeq_iff_cauchynet] at cauchys
     exact cauchySeq_bdd cauchys
+
+/- Operations on CauchyNets -/
+
+theorem cauchynet_neg {s: D → Z} [AddGroup Z] [UniformAddGroup Z] :
+  CauchyNet s → CauchyNet (fun (d: D) ↦ - (s d)) := by
+    simp only [← cauchySeq_iff_cauchynet]
+    exact CauchySeq.neg
+
+theorem cauchynet_inv {s: D → Z}  [Group Z] [UniformGroup Z] :
+  CauchyNet s → CauchyNet (fun (d: D) ↦ (s d)⁻¹) := by
+    simp only [← cauchySeq_iff_cauchynet]
+    exact CauchySeq.inv
+
+theorem cauchynet_add {s t: D → Z} [AddGroup Z] [UniformAddGroup Z] :
+  CauchyNet s → CauchyNet t → CauchyNet (fun (d: D) ↦ s d + t d) := by
+    simp only [← cauchySeq_iff_cauchynet]
+    exact CauchySeq.add
+
+theorem cauchynet_const_mul {s: D → Z} {x: Z} [Group Z] [UniformGroup Z] :
+  CauchyNet s → CauchyNet (fun (d: D) ↦ x * s d) := by
+    simp only [← cauchySeq_iff_cauchynet]
+    exact CauchySeq.const_mul
 
 /- ### Construction of a representative sequence from a Cauchy net ### -/
 

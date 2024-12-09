@@ -1,5 +1,7 @@
 import Topology.Nets.Summability
 import Mathlib.Analysis.Normed.Group.InfiniteSum
+import Mathlib.Analysis.RCLike.Basic
+import Mathlib.Analysis.Normed.Module.FiniteDimension
 
 set_option trace.Meta.Tactic.simp false
 
@@ -8,6 +10,7 @@ noncomputable section
 open Set Filter Topology Function DirectedSet Net
 
 variable {I X: Type*} [SeminormedAddCommGroup X]
+variable {Y: Type*} [NormedAddCommGroup Y] [NormedSpace ℝ Y]
 
 /- ### Basic results about summability ### -/
 
@@ -32,6 +35,24 @@ theorem netsummable_iff_cauchNet_finset [CompleteSpace X] {f: I → X}:
     rw [← cauchySeq_iff_cauchynet (fun E ↦ ∑ e ∈ E, f e),
         ← summable_iff_summablenet, summable_iff_cauchySeq_finset]
 
+theorem cauchysum_const_smul [NormedSpace ℝ X] {f: I → X} {a: ℝ} :
+  CauchySumNet f → CauchySumNet (fun (i: I) ↦ a • (f i)) := by
+    intro cauchyf
+    by_cases h: a = 0
+    · unfold CauchySumNet
+      simp only [h, zero_smul, Finset.sum_const_zero]
+      exact @cauchy_of_exists_lim (Finset I) X _ _ (fun E ↦ 0)
+        (by use 0; exact lim_of_cte 0)
+    · simp only [cauchynet_finset_iff_vanishing_norm] at *
+      intro ε εpos
+      rcases cauchyf (ε * |a|⁻¹)
+        (mul_pos εpos (inv_pos_of_pos (abs_pos.mpr h))) with ⟨F, eq⟩
+      use F
+      intro E disjEF
+      rw [← Finset.smul_sum, norm_smul, Real.norm_eq_abs,
+          ← lt_mul_inv_iff₀' (abs_pos.mpr h)]
+      exact eq E disjEF
+
 /- ### Definition of absolute summability ### -/
 
 /- We say that a function f: I → X is summable if the net of sums over finite sets of I converges -/
@@ -43,6 +64,17 @@ def AbsSummable (f: I → X): Prop :=
   ∃ (t: ℝ), HasAbsSum f t
 
 /- ### Characterization of absolute summability ### -/
+
+/- Relation with HasSum and Summable -/
+theorem hasabssum_iff_hassum_abs (f: I → X) (t: ℝ) :
+  HasAbsSum f t ↔ HasSum (fun (i: I) ↦ ‖f i‖) t := by
+    unfold HasAbsSum
+    rw [hassum_iff_hassumnet]
+
+theorem abssummable_iff_summable_abs (f: I → X) :
+  AbsSummable f ↔ Summable (fun (i: I) ↦ ‖f i‖) := by
+    unfold AbsSummable Summable HasAbsSum
+    simp only [hassum_iff_hassumnet]
 
 /- Characterization of absolute summability -/
 theorem bounded_of_cauchyNet_finset
@@ -203,3 +235,14 @@ theorem summable_of_abssummable [CompleteSpace X] (f: I → X):
         exact norm_sum_le F f
       _ < ε := by
         exact eq F interem
+
+/- ### Equivalence of summable and absolute summable in finite dimensional spaces ### -/
+
+theorem summablenet_iff_abssummable [FiniteDimensional ℝ Y] (f: I → Y) :
+  SummableNet f ↔ AbsSummable f := by
+    rw [← summable_iff_summablenet, abssummable_iff_summable_abs]
+    exact summable_norm_iff.symm
+
+/- ### Operations on absolute summable families ### -/
+
+-- Completar
