@@ -1,6 +1,7 @@
 import Topology.Nets.Theorems
 import Mathlib.Topology.Algebra.InfiniteSum.Group
 import Mathlib.Topology.Algebra.InfiniteSum.Module
+import Mathlib.Analysis.RCLike.Basic
 
 noncomputable section
 
@@ -71,6 +72,18 @@ theorem summable_iff_cauchysum [h: CompleteSpace W] {f: I → W} :
 
 /- ### Operations on summable famlies ### -/
 
+theorem hassumnet_neg {X: Type*}  [AddCommGroup X] [TopologicalSpace X]
+  [TopologicalAddGroup X] {f: I → X} {x: X} :
+  HasSumNet f x → HasSumNet (fun (i : I) => - (f i)) (-x) := by
+    simp only [← hassum_iff_hassumnet]
+    exact HasSum.neg
+
+theorem summablenet_neg {X: Type*}  [AddCommGroup X] [TopologicalSpace X]
+  [TopologicalAddGroup X] {f: I → X} :
+  SummableNet f → SummableNet (fun (i : I) => - (f i)) := by
+    simp only [← summable_iff_summablenet]
+    exact Summable.neg
+
 theorem hassumnet_sum [ContinuousAdd X] {f : J → I → X} {a : J → X} {s : Finset J} :
   (∀ j ∈ s, HasSumNet (f j) (a j)) →
   HasSumNet (fun (i : I) => ∑ j ∈ s, f j i) (∑ j ∈ s, a j) := by
@@ -126,3 +139,14 @@ theorem cauchysum_add {f g: I → U} [AddCommGroup U] [UniformAddGroup U] :
         rw [Finset.sum_add_distrib]
     rw [this]
     exact cauchynet_add
+
+theorem cauchysum_const_smul {Z: Type*} [SeminormedAddCommGroup Z] (𝕜: Type*)
+  [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Z] {f: I → Z} {a: 𝕜} :
+  CauchySumNet f → CauchySumNet (fun (i: I) ↦ a • (f i)) := by
+    unfold CauchySumNet
+    have : (fun E ↦ ∑ e ∈ E, (a • f e)) =
+      (fun E ↦ a • ∑ e ∈ E, f e) := by
+        ext N
+        exact Eq.symm Finset.smul_sum
+    rw [this]
+    exact @cauchynet_const_smul (Finset I) _ Z _ 𝕜 _ _ (fun E ↦ ∑ e ∈ E, f e) a

@@ -2,6 +2,7 @@ import Topology.Nets.DirectedSet
 import Mathlib.Data.Fintype.Lattice
 import Mathlib.Analysis.Normed.Group.Basic
 import Mathlib.Topology.Algebra.UniformGroup.Basic
+import Mathlib.Analysis.RCLike.Basic
 
 noncomputable section
 
@@ -430,6 +431,25 @@ theorem cauchynet_const_mul {s: D → Z} {x: Z} [Group Z] [UniformGroup Z] :
   CauchyNet s → CauchyNet (fun (d: D) ↦ x * s d) := by
     simp only [← cauchySeq_iff_cauchynet]
     exact CauchySeq.const_mul
+
+theorem cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
+  [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} {a: 𝕜} :
+  CauchyNet s → CauchyNet (fun (d: D) ↦ a • (s d)) := by
+    simp only [cauchy_metric_iff, dist_eq_norm]
+    intro cauchys
+    by_cases h: a = 0
+    · simp only [h, zero_smul, sub_zero, norm_zero]
+      intro ε εpos
+      use default
+      intro d e _ _
+      exact εpos
+    · intro ε εpos
+      rcases cauchys (ε * ‖a‖⁻¹)
+        (mul_pos εpos (inv_pos_of_pos (norm_pos_iff.mpr h))) with ⟨d₀, eq⟩
+      use d₀
+      intro d e d₀led d₀lee
+      rw [← smul_sub, norm_smul, ← lt_mul_inv_iff₀' (norm_pos_iff.mpr h)]
+      exact eq d e d₀led d₀lee
 
 /- ### Construction of a representative sequence from a Cauchy net ### -/
 

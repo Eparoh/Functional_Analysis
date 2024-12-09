@@ -11,6 +11,7 @@ open Set Filter Topology Function DirectedSet Net
 
 variable {I X: Type*} [SeminormedAddCommGroup X]
 variable {Y: Type*} [NormedAddCommGroup Y] [NormedSpace ℝ Y]
+variable {Z: Type*} [NormedAddCommGroup Z]
 
 /- ### Basic results about summability ### -/
 
@@ -34,24 +35,6 @@ theorem netsummable_iff_cauchNet_finset [CompleteSpace X] {f: I → X}:
     unfold CauchySumNet
     rw [← cauchySeq_iff_cauchynet (fun E ↦ ∑ e ∈ E, f e),
         ← summable_iff_summablenet, summable_iff_cauchySeq_finset]
-
-theorem cauchysum_const_smul [NormedSpace ℝ X] {f: I → X} {a: ℝ} :
-  CauchySumNet f → CauchySumNet (fun (i: I) ↦ a • (f i)) := by
-    intro cauchyf
-    by_cases h: a = 0
-    · unfold CauchySumNet
-      simp only [h, zero_smul, Finset.sum_const_zero]
-      exact @cauchy_of_exists_lim (Finset I) X _ _ (fun E ↦ 0)
-        (by use 0; exact lim_of_cte 0)
-    · simp only [cauchynet_finset_iff_vanishing_norm] at *
-      intro ε εpos
-      rcases cauchyf (ε * |a|⁻¹)
-        (mul_pos εpos (inv_pos_of_pos (abs_pos.mpr h))) with ⟨F, eq⟩
-      use F
-      intro E disjEF
-      rw [← Finset.smul_sum, norm_smul, Real.norm_eq_abs,
-          ← lt_mul_inv_iff₀' (abs_pos.mpr h)]
-      exact eq E disjEF
 
 /- ### Definition of absolute summability ### -/
 
@@ -236,6 +219,24 @@ theorem summable_of_abssummable [CompleteSpace X] (f: I → X):
       _ < ε := by
         exact eq F interem
 
+/- ### Comparation test for summability ### -/
+
+theorem summablenet_of_norm_bounded [CompleteSpace X]
+  {f : I → X} (g : I → ℝ) (hg : SummableNet g) (h : ∀ (i : I), ‖f i‖ ≤ g i) :
+  SummableNet f := by
+    simp only [← summable_iff_summablenet] at *
+    exact Summable.of_norm_bounded g hg h
+
+theorem abssummable_of_norm_bounded
+  {f : I → X} (g : I → ℝ) (hg : SummableNet g) (h : ∀ (i : I), ‖f i‖ ≤ g i) :
+  AbsSummable f := by
+    rw [abssummable_iff_summable_abs, summable_iff_summablenet]
+    have : ∀ (i : I), ‖‖f i‖‖ ≤ g i := by
+      intro i
+      rw [norm_norm]
+      exact h i
+    exact summablenet_of_norm_bounded g hg this
+
 /- ### Equivalence of summable and absolute summable in finite dimensional spaces ### -/
 
 theorem summablenet_iff_abssummable [FiniteDimensional ℝ Y] (f: I → Y) :
@@ -245,4 +246,37 @@ theorem summablenet_iff_abssummable [FiniteDimensional ℝ Y] (f: I → Y) :
 
 /- ### Operations on absolute summable families ### -/
 
--- Completar
+theorem abssum_sum {f : J → I → X} {s : Finset J} :
+  (∀ j ∈ s, AbsSummable (f j)) →
+  AbsSummable (fun (i : I) => ∑ j ∈ s, f j i) := by
+    intro abssum
+    have : SummableNet fun i ↦ ∑ j ∈ s, ‖f j i‖ := by
+      simp only [abssummable_iff_summable_abs, summable_iff_summablenet] at abssum
+      exact summablenet_sum abssum
+    apply abssummable_of_norm_bounded _ this
+    intro i
+    exact norm_sum_le s (fun j ↦ f j i)
+
+theorem abssum_add {f g: I → X} :
+  AbsSummable f → AbsSummable g → AbsSummable (fun (i : I) => f i + g i) := by
+    intro abssumf abssumg
+    have : SummableNet fun i ↦ ‖f i‖ + ‖g i‖ := by
+      simp only [abssummable_iff_summable_abs, summable_iff_summablenet] at *
+      exact summablenet_add abssumf abssumg
+    apply abssummable_of_norm_bounded _ this
+    intro i
+    exact norm_add_le (f i) (g i)
+
+theorem hasabssum_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
+ [NormedSpace 𝕜 X] {f : I → X} (r : 𝕜) (t: ℝ) :
+  HasAbsSum f t → HasAbsSum (fun (i: I) ↦ r • (f i)) (‖r‖ * t) := by
+    simp only [hasabssum_iff_hassum_abs, hassum_iff_hassumnet, norm_smul,
+               ← smul_eq_mul]
+    exact hassumnet_const_smul ‖r‖
+
+theorem abssum_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
+ [NormedSpace 𝕜 X] {f : I → X} (r : 𝕜) :
+    AbsSummable f → AbsSummable (fun (i: I) ↦ r • (f i)) := by
+      simp only [abssummable_iff_summable_abs, norm_smul, summable_iff_summablenet,
+                 ← smul_eq_mul]
+      exact summablenet_const_smul ‖r‖

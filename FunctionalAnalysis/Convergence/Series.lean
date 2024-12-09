@@ -33,6 +33,139 @@ def conv_abs_serie (f: ℕ → Y) : Prop :=
 def CauchySerie (f: ℕ → Z): Prop :=
    CauchyNet (fun (N: ℕ) ↦ ∑ n ≤ N, f n)
 
+/- ### Absolute convergence equivalence with convergence in ℝ ### -/
+
+lemma conv_abs_serie_iff_conv_serie_real (f: ℕ → Y) :
+  conv_abs_serie f ↔ conv_serie (fun (n : ℕ) => ‖f n‖) := by
+    unfold conv_abs_serie lim_abs_serie conv_serie lim_serie
+    simp only [Real.norm_eq_abs, abs_norm]
+
+lemma conv_abs_serie_iff_conv_abs_serie_real (f: ℕ → Y) :
+  conv_abs_serie f ↔ conv_abs_serie (fun (n : ℕ) => ‖f n‖) := by
+    unfold conv_abs_serie lim_abs_serie lim_serie
+    simp only [Real.norm_eq_abs, abs_norm]
+
+/- ### Operations on series ### -/
+
+theorem serie_neg {X: Type*} [SubtractionCommMonoid X] [TopologicalSpace X]
+  [ContinuousNeg X] {f: ℕ → X} {x: X} :
+  lim_serie f x → lim_serie (fun (i : ℕ) => - (f i)) (-x) := by
+    unfold lim_serie
+    have : (fun N ↦ ∑ n ∈ Finset.Iic N, -f n) =
+      (fun N ↦ - ∑ n ∈ Finset.Iic N, f n) := by
+        ext N
+        exact Finset.sum_neg_distrib
+    rw [this]
+    exact lim_of_neg_eq_neg_of_lim
+
+theorem conv_neg  {X: Type*} [SubtractionCommMonoid X] [TopologicalSpace X]
+  [ContinuousNeg X] {f: ℕ → X} :
+  conv_serie f → conv_serie (fun (i : ℕ) => - (f i)) := by
+    unfold conv_serie
+    intro limf
+    rcases limf with ⟨x, flimx⟩
+    use -x
+    exact serie_neg flimx
+
+theorem serie_sum [ContinuousAdd X] {f : J → ℕ → X} {a : J → X} {s : Finset J} :
+  (∀ j ∈ s, lim_serie (f j) (a j)) →
+  lim_serie (fun (i : ℕ) => ∑ j ∈ s, f j i) (∑ j ∈ s, a j) := by
+    unfold lim_serie
+    have : (fun (d: ℕ) ↦ ∑ j ∈ s, ∑ n ∈ Finset.Iic d, f j n) =
+      (fun N ↦ ∑ n ∈ Finset.Iic N, ∑ j ∈ s, f j n) := by
+        ext N
+        exact Finset.sum_comm
+    rw [← this]
+    exact lim_of_sums_eq_sums_of_lim
+
+theorem conv_sum [ContinuousAdd X] {f : J → ℕ → X} {s : Finset J} :
+  (∀ j ∈ s, conv_serie (f j)) →
+  conv_serie (fun (i : ℕ) => ∑ j ∈ s, f j i) := by
+    classical
+    unfold conv_serie
+    intro convs
+    have : ∃ (a: J → X), (∀ j ∈ s, lim_serie (f j) (a j)) := by
+      let a : J → X := fun j ↦ if h: ∃ x, lim_serie (f j) x
+        then Classical.choose h else 0
+      use a
+      intro j jins
+      unfold a
+      rw [dif_pos (convs j jins)]
+      exact Classical.choose_spec (convs j jins)
+    rcases this with ⟨a, eq⟩
+    use ∑ j ∈ s, a j
+    exact serie_sum eq
+
+theorem serie_add [ContinuousAdd X] {f g: ℕ → X} {x y: X} :
+  lim_serie f x → lim_serie g y → lim_serie (fun (i : ℕ) => f i + g i) (x + y) := by
+    unfold lim_serie
+    have : (fun N ↦ ∑ n ∈ Finset.Iic N, (f n + g n)) =
+      (fun N ↦ (∑ n ∈ Finset.Iic N, f n) + (∑ n ∈ Finset.Iic N, g n)) := by
+        ext N
+        exact Finset.sum_add_distrib
+    rw [this]
+    exact lim_of_sum_eq_sum_of_lim
+
+theorem conv_add [ContinuousAdd X] {f g: ℕ → X} :
+  conv_serie f → conv_serie g → conv_serie (fun (i : ℕ) => f i + g i) := by
+    unfold conv_serie
+    intro limf limg
+    rcases limf with ⟨x, flimx⟩
+    rcases limg with ⟨y, glimy⟩
+    use x + y
+    exact serie_add flimx glimy
+
+theorem serie_const_smul {R: Type*} [TopologicalSpace R] [DistribSMul R X]
+  [h: ContinuousSMul R X] {f: ℕ → X} {x: X} (r: R) :
+    lim_serie f x → lim_serie (fun (i: ℕ) ↦ r • (f i)) (r • x) := by
+      classical
+      unfold lim_serie
+      have : (fun N ↦ ∑ n ∈ Finset.Iic N, (r • f n)) =
+        (fun N ↦ r • ∑ n ∈ Finset.Iic N, f n) := by
+          ext N
+          exact Eq.symm Finset.smul_sum
+      rw [this]
+      exact prod_num_conv r
+
+theorem conv_const_smul {R: Type*} [TopologicalSpace R] [DistribSMul R X]
+  [h: ContinuousSMul R X] {f: ℕ → X} (r: R) :
+    conv_serie f → conv_serie (fun (i: ℕ) ↦ r • (f i)) := by
+      intro convf
+      rcases convf with ⟨x, eq⟩
+      use r • x
+      exact serie_const_smul r eq
+
+theorem cauchyserie_neg {f: ℕ → Y} :
+  CauchySerie f → CauchySerie (fun (n: ℕ) ↦ - (f n)) := by
+    unfold CauchySerie
+    have : (fun N ↦ ∑ n ∈ Finset.Iic N, -f n) =
+      (fun N ↦ - ∑ n ∈ Finset.Iic N, f n) := by
+        ext N
+        exact Finset.sum_neg_distrib
+    rw [this]
+    exact cauchynet_neg
+
+theorem cauchyserie_add {f g: ℕ → Y} :
+  CauchySerie f → CauchySerie g → CauchySerie (fun (n: ℕ) ↦ (f n) + (g n)) := by
+    unfold CauchySerie
+    have : (fun N ↦ ∑ n ∈ Finset.Iic N, (f n + g n)) =
+      (fun N ↦ ∑ n ∈ Finset.Iic N, f n + ∑ n ∈ Finset.Iic N, g n) := by
+        ext N
+        exact Finset.sum_add_distrib
+    rw [this]
+    exact cauchynet_add
+
+theorem cauchyserie_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
+  [NormedSpace 𝕜 Y] {f: ℕ → Y} {a: 𝕜} :
+  CauchySerie f → CauchySerie (fun (n: ℕ) ↦ a • (f n)) := by
+    unfold CauchySerie
+    have : (fun N ↦ ∑ n ∈ Finset.Iic N, (a • f n)) =
+      (fun N ↦ a • ∑ n ∈ Finset.Iic N, f n) := by
+        ext N
+        exact Eq.symm Finset.smul_sum
+    rw [this]
+    exact @cauchynet_const_smul ℕ _ Y _ 𝕜 _ _ (fun N ↦ ∑ n ∈ Finset.Iic N, f n) a
+
 /- ### Characterizations ### -/
 
 lemma lim_serie_iff_lt (f: ℕ → X) (x: X):
@@ -161,7 +294,30 @@ theorem conv_abs_serie_iff_cauchyabsserie [CompleteSpace Y] (f: ℕ → Y):
 
 /- ### Characterization of completeness in term of absolute convergence -/
 
-theorem summable_of_conv_abs_serie [CompleteSpace Y] (f: ℕ → Y) :
+theorem conv_serie_of_summable {f: ℕ → Y} :
+  SummableNet f → conv_serie f := by
+    intro fsumm
+    rcases fsumm with ⟨x, hassumf⟩
+    rw [hassumnet_eps] at hassumf
+    use x
+    rw [lim_serie_eps]
+    intro ε εpos
+    rcases hassumf ε εpos with ⟨F₀, eq⟩
+    by_cases h: F₀.Nonempty
+    · use F₀.max' h
+      intro n len
+      have : F₀ ⊆ Finset.Iic n := by
+        intro m minF₀
+        rw [Finset.mem_Iic]
+        exact le_trans (Finset.le_max' F₀ m minF₀) len
+      exact eq (Finset.Iic n) this
+    · rw [Finset.not_nonempty_iff_eq_empty] at h
+      simp only [h, Finset.empty_subset, forall_const] at eq
+      use 0
+      intro n zlen
+      exact eq (Finset.Iic n)
+
+theorem summable_of_conv_abs_serie [CompleteSpace Y] {f: ℕ → Y} :
   conv_abs_serie f → SummableNet f := by
     intro fconvabs
     apply summable_of_abssummable
@@ -205,10 +361,15 @@ theorem summable_of_conv_abs_serie [CompleteSpace Y] (f: ℕ → Y) :
       rw [h, Finset.sum_empty]
       exact εpos
 
+theorem conv_serie_of_conv_abs_serie [CompleteSpace Y] (f: ℕ → Y) :
+  conv_abs_serie f → conv_serie f := by
+    intro fabsconv
+    exact conv_serie_of_summable (summable_of_conv_abs_serie fabsconv)
+
 theorem Real_conv_abs_serie_iff_summable (f: ℕ → ℝ) :
   conv_abs_serie f ↔ SummableNet f := by
     constructor
-    · exact summable_of_conv_abs_serie f
+    · exact summable_of_conv_abs_serie
     · intro fsummable
       simp only [conv_abs_serie_iff_cauchyabsserie, Real.norm_eq_abs]
       have fcauchysum := cauchysum_of_summable fsummable
@@ -300,11 +461,6 @@ theorem Real_conv_abs_serie_iff_summable (f: ℕ → ℝ) :
         simp only [h, Finset.empty_subset, forall_const] at eq
         exact eq F G
 
-lemma conv_abs_serie_iff_conv_abs_serie_real (f: ℕ → Y) :
-  conv_abs_serie f ↔ conv_abs_serie (fun (n : ℕ) => ‖f n‖) := by
-    unfold conv_abs_serie lim_abs_serie lim_serie
-    simp only [Real.norm_eq_abs, abs_norm]
-
 lemma conv_abs_serie_iff_summable_abs (f: ℕ → Y) :
   conv_abs_serie f ↔ SummableNet (fun (n : ℕ) => ‖f n‖) := by
     rw [conv_abs_serie_iff_conv_abs_serie_real, Real_conv_abs_serie_iff_summable]
@@ -321,6 +477,75 @@ theorem completespace_iff_conv_abs_imp_conv :
     simp only [conv_abs_serie_iff_summable_abs, conv_serie_iff_exists_tendsto,
                ← summable_iff_summablenet]
     exact Iff.symm NormedAddCommGroup.summable_imp_tendsto_iff_completeSpace
+
+/- ### Comparation criterion ### -/
+
+theorem conv_serie_of_norm_bounded [CompleteSpace Y]
+  {f : ℕ → Y} (g : ℕ → ℝ) (hg : conv_serie g) (h : ∀ (n : ℕ), ‖f n‖ ≤ g n) :
+  conv_serie f := by
+    apply conv_serie_of_conv_abs_serie
+    rw [conv_abs_serie_iff_summable_abs]
+    have gabsconv : conv_abs_serie g := by
+      simp only [conv_abs_serie_iff_conv_serie_real, Real.norm_eq_abs,
+                 fun (n: ℕ) ↦ abs_of_nonneg
+                 (le_trans (norm_nonneg (f n)) (h n))]
+      exact hg
+    rw [conv_abs_serie_iff_summable] at gabsconv
+    have : ∀ (n : ℕ), ‖‖f n‖‖ ≤ g n := by
+      intro n
+      rw [norm_norm]
+      exact h n
+    exact summablenet_of_norm_bounded g gabsconv this
+
+theorem conv_abs_serie_of_norm_bounded
+  {f : ℕ → Y} (g : ℕ → ℝ) (hg : conv_serie g) (h : ∀ (n : ℕ), ‖f n‖ ≤ g n) :
+  conv_abs_serie f := by
+    rw [conv_abs_serie_iff_summable_abs]
+    have gabsconv : conv_abs_serie g := by
+      simp only [conv_abs_serie_iff_conv_serie_real, Real.norm_eq_abs,
+                 fun (n: ℕ) ↦ abs_of_nonneg
+                 (le_trans (norm_nonneg (f n)) (h n))]
+      exact hg
+    rw [conv_abs_serie_iff_summable] at gabsconv
+    have : ∀ (n : ℕ), ‖‖f n‖‖ ≤ g n := by
+      intro n
+      rw [norm_norm]
+      exact h n
+    exact summablenet_of_norm_bounded g gabsconv this
+
+/- ### Operations on absolute convergent series ### -/
+
+theorem absconv_sum {f : J → ℕ → Y} {s : Finset J} :
+  (∀ j ∈ s, conv_abs_serie (f j)) →
+  conv_abs_serie (fun (i : ℕ) => ∑ j ∈ s, f j i) := by
+    intro absconv
+    apply conv_abs_serie_of_norm_bounded _ (conv_sum absconv)
+    intro n
+    exact norm_sum_le s (fun j ↦ f j n)
+
+theorem absconv_add {f g: ℕ → Y} :
+  conv_abs_serie f → conv_abs_serie g →
+  conv_abs_serie (fun (i : ℕ) => f i + g i) := by
+    intro absconvf absconvg
+    apply conv_abs_serie_of_norm_bounded _ (conv_add absconvf absconvg)
+    intro n
+    exact norm_add_le (f n) (g n)
+
+theorem absserie_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
+  [NormedSpace 𝕜 Y] {f: ℕ → Y} {t: ℝ} (r: 𝕜) :
+  lim_abs_serie f t → lim_abs_serie (fun (i: ℕ) ↦ r • (f i)) (‖r‖ * t) := by
+    unfold lim_abs_serie
+    intro limabsf
+    simp only [norm_smul, ← smul_eq_mul]
+    exact serie_const_smul ‖r‖ limabsf
+
+theorem absconv_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
+  [NormedSpace 𝕜 Y] {f: ℕ → Y} (r: 𝕜) :
+    conv_abs_serie f → conv_abs_serie (fun (i: ℕ) ↦ r • (f i)) := by
+      intro convabsf
+      rcases convabsf with ⟨t, eq⟩
+      use ‖r‖ * t
+      exact absserie_const_smul 𝕜 r eq
 
 /- ### Unconditional convergence ### -/
 
@@ -415,7 +640,7 @@ theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
         rw [← Real.norm_eq_abs, ← Real.norm_eq_abs]
         exact gsubK (g n) this
       have : CauchySerie (fun (n: ℕ) ↦ |K| • ‖f n‖) := by
-        unfold CauchySerie
+        apply cauchyserie_const_smul
         sorry
       rw [cauchyserie_iff_vanishing_norm] at *
       intro ε εpos

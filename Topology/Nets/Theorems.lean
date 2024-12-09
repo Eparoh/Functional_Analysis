@@ -396,7 +396,21 @@ theorem lim_of_cte (x: X): Limit (fun (_: D) ↦ x) x := by
   intro d defled
   exact mem_of_mem_nhds Unhds
 
+/- Negation of convergent net is convergent -/
+theorem lim_of_neg_eq_neg_of_lim [Neg X] [h: ContinuousNeg X]
+  {s: D → X} {x: X}:
+  Limit s x → Limit (fun (d: D) ↦ - (s d)) (-x) := by
+    exact limfunnet_of_continuousAt (fun (z: X) ↦ -z) x
+      (continuous_iff_continuousAt.mp h.continuous_neg x)
+
 /- Sum of convergent nets is convergent -/
+theorem lim_of_sums_eq_sums_of_lim  [AddCommMonoid X]
+  [h: ContinuousAdd X] {f : J → D → X} {a : J → X} {s : Finset J} :
+    (∀ j ∈ s, Limit (f j) (a j)) →
+    Limit (fun (d : D) ↦ ∑ j ∈ s, f j d) (∑ j ∈ s, a j) := by
+      simp only [limit_iff_tendsto]
+      exact tendsto_finset_sum s
+
 theorem lim_of_sum_eq_sum_of_lim [Add X] [h: ContinuousAdd X]
   {s t: D → X} {x y: X}:
   Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) + (t d)) (x + y) := by
