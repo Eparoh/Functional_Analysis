@@ -3,6 +3,7 @@ import Mathlib.Analysis.Normed.Group.InfiniteSum
 import Mathlib.Analysis.Normed.Group.Completeness
 import Mathlib.Analysis.RCLike.Basic
 import Mathlib.Analysis.LocallyConvex.Bounded
+import Mathlib.Analysis.NormedSpace.HahnBanach.Extension
 
 set_option trace.Meta.Tactic.simp false
 
@@ -156,7 +157,7 @@ theorem cauchyserie_add {f g: ℕ → Y} :
     exact cauchynet_add
 
 theorem cauchyserie_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
-  [NormedSpace 𝕜 Y] {f: ℕ → Y} {a: 𝕜} :
+  [NormedSpace 𝕜 Y] {f: ℕ → Y} (a: 𝕜) :
   CauchySerie f → CauchySerie (fun (n: ℕ) ↦ a • (f n)) := by
     unfold CauchySerie
     have : (fun N ↦ ∑ n ∈ Finset.Iic N, (a • f n)) =
@@ -165,6 +166,17 @@ theorem cauchyserie_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
         exact Eq.symm Finset.smul_sum
     rw [this]
     exact @cauchynet_const_smul ℕ _ Y _ 𝕜 _ _ (fun N ↦ ∑ n ∈ Finset.Iic N, f n) a
+
+theorem cauchyserie_iff_cauchyserie_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
+  [NormedSpace 𝕜 Y] {f: ℕ → Y} (a: 𝕜) (anezero: a ≠ 0) :
+  CauchySerie f ↔ CauchySerie (fun (n: ℕ) ↦ a • (f n)) := by
+    unfold CauchySerie
+    have : (fun N ↦ ∑ n ∈ Finset.Iic N, (a • f n)) =
+      (fun N ↦ a • ∑ n ∈ Finset.Iic N, f n) := by
+        ext N
+        exact Eq.symm Finset.smul_sum
+    rw [this]
+    exact @cauchynet_iff_cauchynet_const_smul ℕ _ Y _ 𝕜 _ _ (fun N ↦ ∑ n ∈ Finset.Iic N, f n) a anezero
 
 /- ### Characterizations ### -/
 
@@ -480,23 +492,6 @@ theorem completespace_iff_conv_abs_imp_conv :
 
 /- ### Comparation criterion ### -/
 
-theorem conv_serie_of_norm_bounded [CompleteSpace Y]
-  {f : ℕ → Y} (g : ℕ → ℝ) (hg : conv_serie g) (h : ∀ (n : ℕ), ‖f n‖ ≤ g n) :
-  conv_serie f := by
-    apply conv_serie_of_conv_abs_serie
-    rw [conv_abs_serie_iff_summable_abs]
-    have gabsconv : conv_abs_serie g := by
-      simp only [conv_abs_serie_iff_conv_serie_real, Real.norm_eq_abs,
-                 fun (n: ℕ) ↦ abs_of_nonneg
-                 (le_trans (norm_nonneg (f n)) (h n))]
-      exact hg
-    rw [conv_abs_serie_iff_summable] at gabsconv
-    have : ∀ (n : ℕ), ‖‖f n‖‖ ≤ g n := by
-      intro n
-      rw [norm_norm]
-      exact h n
-    exact summablenet_of_norm_bounded g gabsconv this
-
 theorem conv_abs_serie_of_norm_bounded
   {f : ℕ → Y} (g : ℕ → ℝ) (hg : conv_serie g) (h : ∀ (n : ℕ), ‖f n‖ ≤ g n) :
   conv_abs_serie f := by
@@ -512,6 +507,12 @@ theorem conv_abs_serie_of_norm_bounded
       rw [norm_norm]
       exact h n
     exact summablenet_of_norm_bounded g gabsconv this
+
+theorem conv_serie_of_norm_bounded [CompleteSpace Y]
+  {f : ℕ → Y} (g : ℕ → ℝ) (hg : conv_serie g) (h : ∀ (n : ℕ), ‖f n‖ ≤ g n) :
+  conv_serie f := by
+    apply conv_serie_of_conv_abs_serie
+    exact conv_abs_serie_of_norm_bounded g hg h
 
 /- ### Operations on absolute convergent series ### -/
 
@@ -621,8 +622,124 @@ theorem NormedSpace.isBounded_iff_bounded_norm (𝕜 : Type*) {E : Type*}
           apply inv_mul_le_one_of_le₀ (eq.2 e eins) (norm_nonneg k)
         · rw [← smul_assoc, smul_eq_mul, mul_inv_cancel₀ eq.1, one_smul]
 
+lemma pm_finite_sums_bddabove (s: Finset Y) :
+  BddAbove {t: ℝ | ∃ g: Y → ℝ, g '' s ⊆ {-1, 1} ∧ t = ‖∑ y ∈ s, (g y) • y‖} := by
+    use ∑ y ∈ s, ‖y‖
+    rw [mem_upperBounds]
+    intro t tin
+    rw [Set.mem_setOf_eq] at tin
+    rcases tin with ⟨g, g1m1, teq⟩
+    have : ∀ y ∈ s, |g y| = 1 := by
+      intro y yins
+      have : g y ∈ g '' s := by
+        use y
+        exact And.intro yins rfl
+      have := g1m1 this
+      rcases this with h | h
+      repeat
+        rw [h]
+        norm_num
+    rw [teq]
+    calc
+      ‖∑ y ∈ s, g y • y‖ ≤ ∑ y ∈ s, ‖g y • y‖ := by
+        exact norm_sum_le s fun i ↦ g i • i
+      _ = ∑ y ∈ s, |g y| * ‖y‖ := by
+        simp only [norm_smul, Real.norm_eq_abs]
+      _ = ∑ y ∈ s, ‖y‖ := by
+        apply Finset.sum_congr rfl
+        intro y yins
+        rw [this y yins, one_mul]
+
+lemma sup_bdd_one_eq_sup_bdd_le_one [NormedSpace ℝ W] (s: Finset W) :
+  sSup {t: ℝ | ∃ g: W → ℝ, g '' s ⊆ {-1, 1} ∧ t = ‖∑ w ∈ s, (g w) • w‖} =
+  sSup {t: ℝ | ∃ g: W → ℝ, g '' s ⊆ Icc (-1) 1 ∧ t = ‖∑ w ∈ s, (g w) • w‖} := by
+    apply csSup_eq_csSup_of_forall_exists_le
+    · intro t tin
+      use t
+      rw [Set.mem_setOf_eq] at *
+      constructor
+      · rcases tin with ⟨g, g1m1, teq⟩
+        use g
+        constructor
+        · apply subset_trans g1m1
+          intro t tin
+          rcases tin with h | h
+          repeat
+            rw [h]
+            norm_num
+        · assumption
+      · rfl
+    · intro t tin
+      rw [Set.mem_setOf_eq] at tin
+      rcases tin with ⟨g, gle1, teq⟩
+      by_cases h: ∑ w ∈ s, (g w) • w = 0
+      · use ‖∑ w ∈ s, w‖
+        constructor
+        · use (fun w ↦ 1)
+          constructor
+          · simp only [image_subset_iff, mem_insert_iff, mem_singleton_iff, or_true,
+                       preimage_const_of_mem, subset_univ]
+          · simp only [one_smul]
+        · rw [teq, h, norm_zero]
+          exact norm_nonneg (∑ y ∈ s, y)
+      · rcases exists_dual_vector ℝ (∑ w ∈ s, (g w) • w) h with ⟨f, fnormone, feqnorm⟩
+        let g': W → ℝ := fun w ↦ if f w < 0 then -1 else 1
+        use ‖∑ w ∈ s, (g' w) • w‖
+        constructor
+        · rw [Set.mem_setOf_eq]
+          use g'
+          constructor
+          · intro r rin
+            rw [mem_image] at rin
+            rcases rin with ⟨w, wins, req⟩
+            rw [← req]
+            simp only [mem_insert_iff, mem_singleton_iff]
+            unfold g'
+            by_cases h' : f w < 0
+            · left
+              rw [if_pos h']
+            · right
+              rw [if_neg h']
+          · rfl
+        · have :  f (∑ w ∈ s, g w • w) = ‖∑ w ∈ s, g w • w‖ := by
+            rw [feqnorm]
+            simp only [RCLike.ofReal_real_eq_id, id_eq]
+          simp only [teq, ← this, map_sum, map_smul]
+          calc
+            ∑ x ∈ s, g x • f x ≤ |∑ x ∈ s, g x • f x| := by
+              exact le_abs_self (∑ x ∈ s, g x • f x)
+            _ ≤ ∑ x ∈ s, ‖g x • f x‖ := by
+              exact Finset.abs_sum_le_sum_abs (fun i ↦ g i • f i) s
+            _ = ∑ x ∈ s, |g x| * |f x| := by
+              simp only [norm_smul, Real.norm_eq_abs]
+            _ ≤ ∑ x ∈ s, |f x| := by
+              apply Finset.sum_le_sum
+              intro w wins
+              nth_rw 2 [← one_mul (|f w|)]
+              apply mul_le_mul_of_nonneg_right _ (abs_nonneg (f w))
+              rw [abs_le, ← mem_Icc]
+              apply gle1
+              use w
+              exact And.intro wins rfl
+            _ = ∑ x ∈ s, g' x * f x := by
+              unfold g'
+              apply Finset.sum_congr rfl
+              intro w wins
+              by_cases h': f w < 0
+              · rw [abs_of_neg h', if_pos h', neg_mul, one_mul]
+              · rw [abs_of_nonneg (le_of_not_lt h'), if_neg h', one_mul]
+            _ = f (∑ x ∈ s, g' x • x) := by
+              simp only [← smul_eq_mul, ← map_smul f, ← map_sum f]
+            _ ≤ |f (∑ x ∈ s, g' x • x)| := by
+              exact le_abs_self (f (∑ x ∈ s, g' x • x))
+            _ ≤ ‖f‖ * ‖∑ x ∈ s, g' x • x‖ := by
+              exact ContinuousLinearMap.le_opNorm f (∑ x ∈ s, g' x • x)
+            _ = ‖∑ x ∈ s, g' x • x‖ := by
+              rw [fnormone, one_mul]
+
 theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
   BMCauchy f ↔ ACauchy f := by
+    classical
     unfold BMCauchy ACauchy
     constructor
     · intro BMcauchy g rgsub
@@ -639,35 +756,113 @@ theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
           use n
         rw [← Real.norm_eq_abs, ← Real.norm_eq_abs]
         exact gsubK (g n) this
-      have : CauchySerie (fun (n: ℕ) ↦ |K| • ‖f n‖) := by
-        apply cauchyserie_const_smul
+      rw [cauchyserie_iff_cauchyserie_const_smul ℝ |K|⁻¹
+          (inv_ne_zero (abs_ne_zero.mpr Knez))]
+      simp only [← smul_assoc, smul_eq_mul]
+      have inIcc : ∀ (n: ℕ), |K|⁻¹ * g n ∈ Icc (-1) 1 := by
+        intro n
+        rw [mem_Icc, ← abs_le, abs_mul, abs_inv, abs_abs]
+        calc
+          |K|⁻¹ * |g n| ≤ |K|⁻¹ * |K| := by
+            exact mul_le_mul_of_nonneg (le_refl |K|⁻¹) (gleK n)
+              (inv_nonneg_of_nonneg (abs_nonneg K)) (abs_nonneg K)
+          _ = 1 := by
+            rw [inv_mul_cancel₀ (abs_ne_zero.mpr Knez)]
+      rw [cauchyserie_iff_vanishing_norm]
+      by_contra! h
+      rcases h with ⟨ε₀, ε₀pos, eq⟩
+      have exist_suc: ∃ (g₁: ℕ → ℕ) (g₂: ℕ → ℕ),
+        (∀ (n: ℕ), g₁ n < g₂ n ∧ g₂ n < g₁ (n + 1) ∧
+        ε₀ ≤ ‖∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), (|K|⁻¹ * g i) • f i‖) := by
         sorry
-      rw [cauchyserie_iff_vanishing_norm] at *
-      intro ε εpos
-      rcases this ε εpos with ⟨n₀, eq⟩
-      use n₀
-      intro n m n₀len nlem
-      calc
-        ‖∑ i ∈ Finset.Ioc n m, g i • f i‖ ≤ ∑ i ∈ Finset.Ioc n m, ‖g i • f i‖ := by
-          exact norm_sum_le (Finset.Ioc n m) fun i ↦ g i • f i
-        _ = ∑ i ∈ Finset.Ioc n m, |g i| * ‖f i‖ := by
-          apply Finset.sum_congr rfl
-          intro k kin
-          rw [norm_smul, Real.norm_eq_abs]
-        _ ≤ ∑ i ∈ Finset.Ioc n m, |K| * ‖f i‖ := by
-          apply Finset.sum_le_sum
-          intro i iin
-          apply mul_le_mul_of_nonneg_right (gleK i) (norm_nonneg (f i))
-        _ = ∑ i ∈ Finset.Ioc n m, |K| • ‖f i‖ := by
-          rfl
-        _ = ‖∑ i ∈ Finset.Ioc n m, |K| • ‖f i‖‖ := by
-          rw [Real.norm_eq_abs]
-          rw [Finset.abs_sum_of_nonneg']
-          intro i
-          rw [← Real.norm_eq_abs, smul_eq_mul, ← norm_smul]
-          exact norm_nonneg (K • (f i))
-        _ < ε := by
-          exact eq n m n₀len nlem
+      rcases exist_suc with ⟨g₁, ⟨g₂, eq⟩⟩
+      have g₁incr : StrictMono g₁ := by
+        sorry
+      have g₂incr : StrictMono g₂ := by
+        sorry
+      have nleg₁ : ∀ (n: ℕ), n ≤ g₁ n:= by
+        intro n
+        exact StrictMono.le_apply g₁incr
+      have nleg₂ : ∀ (n: ℕ), n ≤ g₂ n:= by
+        intro n
+        exact StrictMono.le_apply g₂incr
+      have exist_gpm1 : ∃ (h: ℕ → ℝ), range h ⊆ {1, -1} ∧
+        ∀ (n: ℕ), ‖∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), (|K|⁻¹ * g i) • f i‖ <
+        ‖∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), h i • f i‖ + ε₀/2 := by
+          have : ∀ (n: ℕ), ∃ (p: ℕ → ℝ), (range p ⊆ {1, -1} ∧
+            ‖∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), (|K|⁻¹ * g i) • f i‖ <
+            ‖∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), p i • f i‖ + ε₀/2) := by
+              sorry
+          let F : ℕ → ℕ → ℝ := fun n ↦ if h: ∃ p, range p ⊆ {1, -1} ∧
+              ‖∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), (|K|⁻¹ * g i) • f i‖ <
+              ‖∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), p i • f i‖ + ε₀ / 2 then Classical.choose h
+              else (fun n ↦ 0)
+          have rangeF : ∀ (n k: ℕ), (F n k) = 1  ∨ (F n k) = -1 := by
+            sorry
+          let h: ℕ → ℝ := fun n ↦ if j: ∃ (k: ℕ), g₁ k < n ∧ n ≤ g₂ k then
+            F (Classical.choose j) n else 1
+          have : ∀ (n: ℕ), ∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), h i • f i =
+            ∑ i ∈ Finset.Ioc (g₁ n) (g₂ n), (F n i) • f i := by
+              intro n
+              apply Finset.sum_congr rfl
+              · intro i iin
+                have : h i = F n i := by
+                  rw [Finset.mem_Ioc] at iin
+                  have j : ∃ k, g₁ k < i ∧ i ≤ g₂ k := by
+                    use n
+                  have : Classical.choose j = n := by
+                    by_contra!
+                    rw [ne_iff_lt_or_gt] at this
+                    rcases this with lt | gt
+                    · have : i < i := by
+                        calc
+                          i ≤ g₂ (Classical.choose j) := by
+                            exact (Classical.choose_spec j).2
+                          _ < g₁ (Classical.choose j + 1) := by
+                            exact (eq (Classical.choose j)).2.1
+                          _ ≤ g₁ n := by
+                            exact StrictMono.monotone g₁incr lt
+                          _ < i := by
+                            exact iin.1
+                      linarith
+                    · have : i < i := by
+                        sorry
+                      linarith
+                  unfold h
+                  rw [dif_pos j, this]
+                apply congr_arg (fun (x: ℝ) ↦ x • (f i)) this
+          use h
+          constructor
+          · intro t tinrh
+            rw [mem_range]at tinrh
+            rcases tinrh with ⟨n, hneqt⟩
+            rw [← hneqt]
+            simp only [mem_insert_iff, mem_singleton_iff]
+            unfold h
+            by_cases j : ∃ k, g₁ k < n ∧ n ≤ g₂ k
+            · rw [dif_pos j]
+              exact rangeF (Classical.choose j) n
+            · rw [dif_neg j]
+              left
+              rfl
+          · intro n
+            sorry
+      rcases exist_gpm1 with ⟨h, rhpm1, difltediv2⟩
+      have hfcauchy := ACauchy h rhpm1
+      rw [cauchyserie_iff_vanishing_norm] at hfcauchy
+      rcases hfcauchy (ε₀/2) (by linarith [ε₀pos]) with ⟨n₀, eq'⟩
+      have : ε₀ < ε₀ := by
+        calc
+          ε₀ ≤ ‖∑ i ∈ Finset.Ioc (g₁ n₀) (g₂ n₀), (|K|⁻¹ * g i) • f i‖ := by
+            exact (eq n₀).2.2
+          _  < ‖∑ i ∈ Finset.Ioc (g₁ n₀) (g₂ n₀), h i • f i‖ + ε₀ / 2 := by
+            exact difltediv2 n₀
+          _ < ε₀/2 + ε₀/2 := by
+            rw [add_lt_add_iff_right (ε₀ / 2)]
+            exact eq' (g₁ n₀) (g₂ n₀) (nleg₁ n₀) (le_of_lt (eq n₀).1)
+          _ = ε₀ := by
+            norm_num
+      linarith
 
 theorem BMCauchy_of_SCauchy (f: ℕ → Y) :
   BMCauchy f → SCauchy f := by

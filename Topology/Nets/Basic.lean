@@ -433,7 +433,7 @@ theorem cauchynet_const_mul {s: D → Z} {x: Z} [Group Z] [UniformGroup Z] :
     exact CauchySeq.const_mul
 
 theorem cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
-  [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} {a: 𝕜} :
+  [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} (a: 𝕜) :
   CauchyNet s → CauchyNet (fun (d: D) ↦ a • (s d)) := by
     simp only [cauchy_metric_iff, dist_eq_norm]
     intro cauchys
@@ -450,6 +450,19 @@ theorem cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
       intro d e d₀led d₀lee
       rw [← smul_sub, norm_smul, ← lt_mul_inv_iff₀' (norm_pos_iff.mpr h)]
       exact eq d e d₀led d₀lee
+
+theorem cauchynet_iff_cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
+  [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} (a: 𝕜) (anezero: a ≠ 0) :
+  CauchyNet s ↔ CauchyNet (fun (d: D) ↦ a • (s d)) := by
+    constructor
+    · exact cauchynet_const_smul 𝕜 a
+    · intro cauchya
+      have := cauchynet_const_smul 𝕜 a⁻¹ cauchya
+      have : (fun d ↦ a⁻¹ • a • s d) = s := by
+        ext d
+        rw [← smul_assoc, smul_eq_mul, inv_mul_cancel₀ anezero, one_smul]
+      rw [← this]
+      assumption
 
 /- ### Construction of a representative sequence from a Cauchy net ### -/
 
