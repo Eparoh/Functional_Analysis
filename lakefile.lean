@@ -22,3 +22,7 @@ lean_lib «Topology» where
   @[default_target]
 lean_lib «FunctionalAnalysis» where
   -- add any library configuration options here
+
+  @[default_target]
+lean_lib «CajonSastre» where
+  -- add any library configuration options here

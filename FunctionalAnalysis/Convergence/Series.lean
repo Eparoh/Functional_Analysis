@@ -4,6 +4,7 @@ import Mathlib.Analysis.Normed.Group.Completeness
 import Mathlib.Analysis.RCLike.Basic
 import Mathlib.Analysis.LocallyConvex.Bounded
 import Mathlib.Analysis.NormedSpace.HahnBanach.Extension
+import CajonSastre.Finset
 
 set_option trace.Meta.Tactic.simp false
 
@@ -16,6 +17,7 @@ variable {Y: Type*} [SeminormedAddCommGroup Y]
 variable {Z: Type*} [AddCommMonoid Z] [UniformSpace Z]
 variable {W: Type*} [NormedAddCommGroup W]
 variable {M: Type*} [AddCommGroup M]
+variable {N: Type*} [AddCommGroup N] [TopologicalSpace N] [TopologicalAddGroup N]
 
 /- ### Definitions ### -/
 
@@ -228,28 +230,6 @@ theorem lim_serie_eps (f: ℕ → Y) (x: Y) :
       exact eq n n₀len
 
 /- Characterization of Cauchy condition for a series in a normed space -/
-
-lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {f : ℕ → M} {n m : ℕ} (h : n ≤ m) :
-  ∑ i ∈ Finset.Iic m, f i =
-  ∑ i ∈ Finset.Ioc n m, f i + ∑ i ∈ Finset.Iic n, f i := by
-    have inter: ∀ (m: ℕ), Finset.Iic m = Finset.Icc 0 m := by
-      intro m
-      exact rfl
-    simp only [inter]
-    induction' n with n ih
-    · simp only [Finset.Icc_self, Finset.sum_singleton]
-      rw [Finset.sum_Ioc_add_eq_sum_Icc h]
-    · rw [Finset.sum_Icc_succ_top (Nat.le_add_left 0 (n + 1)),
-          add_comm _ (f (n + 1)), ← add_assoc,
-          Finset.sum_Ioc_add_eq_sum_Icc h]
-      simp only [Nat.Icc_succ_left]
-      exact ih (Nat.le_of_succ_le h)
-
-lemma Finset.sum_Iic_sub_Iic_eq_sum_Ioc {f : ℕ → M} {n m : ℕ} (h : n ≤ m) :
-    ∑ i ∈ Finset.Iic m, f i - ∑ i ∈ Finset.Iic n, f i =
-    ∑ i ∈ Finset.Ioc n m, f i := by
-    rw [sub_eq_iff_eq_add]
-    exact Finset.sum_Iic_eq_sum_Ioc_add_Iic h
 
 theorem cauchyserie_iff_vanishing_norm (f: ℕ → Y) :
   CauchySerie f ↔ ∀ ε >0, (∃ (n₀: ℕ), ∀ (n m: ℕ),
@@ -649,6 +629,40 @@ theorem absconv_const_smul (𝕜: Type*) [NontriviallyNormedField 𝕜]
       rcases convabsf with ⟨t, eq⟩
       use ‖r‖ * t
       exact absserie_const_smul 𝕜 r eq
+
+/- ### Telescopic series ### -/
+
+theorem telescopic_conv_to {f g: ℕ → N}
+  (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) {x: N} (limitg: Limit g x): lim_serie f (x - g 0) := by
+    unfold lim_serie
+    simp only [tlsc, Finset.sum_Iic_telescopic]
+    apply lim_of_sub_eq_sub_of_lim
+    · exact (netlim_iff_shift_subsequence_lim g 1).mp limitg
+    · exact lim_of_cte (g 0)
+
+theorem telescopic_conv {f g: ℕ → N}
+  (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) {x: N} (limitg: Limit g x): conv_serie f := by
+    use x - g 0
+    exact telescopic_conv_to tlsc limitg
+
+theorem conv_telescopic_to (f g: ℕ → N)
+  (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) {x: N} (fconvx: lim_serie f x): Limit g (x + g 0) := by
+    unfold lim_serie at fconvx
+    simp only [tlsc, Finset.sum_Iic_telescopic] at fconvx
+    rw [netlim_iff_shift_subsequence_lim g 1]
+    have : (fun n ↦ g (n + 1)) = (fun N ↦ g (N + 1) - g 0) + ((fun N ↦ g 0)) := by
+      ext n
+      rw [Pi.add_apply, sub_add, sub_self, sub_zero]
+    rw [this]
+    apply lim_of_sum_eq_sum_of_lim
+    · exact fconvx
+    · exact lim_of_cte (g 0)
+
+theorem conv_telescopic (f g: ℕ → N)
+  (tlsc: ∀ (n: ℕ), f n = g (n + 1) - g n) (fconv: conv_serie f): ∃ (x: N), Limit g x := by
+    rcases fconv with ⟨x, eq⟩
+    use x + g 0
+    exact conv_telescopic_to f g tlsc eq
 
 /- ### Unconditional convergence ### -/
 

@@ -1,4 +1,5 @@
 import Topology.Nets.Summability
+import Topology.Nets.Limits
 import Mathlib.Analysis.Normed.Group.InfiniteSum
 import Mathlib.Analysis.RCLike.Basic
 import Mathlib.Analysis.Normed.Module.FiniteDimension
@@ -125,19 +126,6 @@ theorem bounded_of_abssummable (f: I → X):
     simp only [Real.norm_eq_abs] at h
     rw [sum_of_norms_eq_abs_of_sum]
     assumption
-
-lemma exists_lt_LUB {s: Set ℝ} {a: ℝ} (h: IsLUB s a) (ε: ℝ) (εpos: 0 < ε) :
-  ∃ b ∈ s, a - ε < b := by
-    have := h.2
-    rw [mem_lowerBounds] at this
-    have : a - ε ∉ upperBounds s := by
-      intro aεupb
-      have := this (a - ε) aεupb
-      linarith
-    rw [mem_upperBounds] at this
-    push_neg at this
-    rcases this with ⟨b, bins, aεltb⟩
-    use b
 
 theorem hasabssum_eq_LUB_of_bounded
   (f: I → X):

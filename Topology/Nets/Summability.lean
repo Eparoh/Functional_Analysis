@@ -1,4 +1,5 @@
 import Topology.Nets.Theorems
+import Topology.Nets.Limits
 import Mathlib.Topology.Algebra.InfiniteSum.Group
 import Mathlib.Topology.Algebra.InfiniteSum.Module
 import Mathlib.Analysis.RCLike.Basic

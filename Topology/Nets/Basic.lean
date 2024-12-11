@@ -156,6 +156,51 @@ theorem lim_of_subnet_of_subnet {D: Type u_1} [DirectedSet D]
       rw [← this] at sii'd₀ninU
       contradiction
 
+theorem lim_of_lim_of_sub {ι: Type*} (I : ι → Set D) (J: Finset ι)
+  (s: D → X) (x: X) (cs: ∀ (d: D), ∃ i ∈ J,  d ∈ I i)
+  (sl: ∀ U ∈ 𝓝 x, ∀ i ∈ J, ∃ d ∈ I i, ∀ (d': D), (d' ∈ I i ∧ d' ≥ d) → s d' ∈ U)  :
+    Limit s x := by
+      classical
+      intro U Unhds
+      let S : (i: ι) → D := fun i ↦ if h: ∃ d ∈ I i, ∀ (d' : D), d' ∈ I i ∧ d' ≥ d → s d' ∈ U then
+        Classical.choose h else default
+      have Sdef : ∀ i ∈ J, ∀ d ∈ I i, S i ≤ d → s d ∈ U := by
+        intro i iinJ d dinIi Siled
+        dsimp only [S] at Siled
+        rw [dif_pos (sl U Unhds i iinJ)] at Siled
+        exact (Classical.choose_spec (sl U Unhds i iinJ)).2 d (And.intro dinIi Siled)
+      rcases sup_finite_set (Finset.image S J) with ⟨d₀, eq⟩
+      use d₀
+      intro d d₀led
+      rcases cs d with ⟨i, iinJ, dinIi⟩
+      have : S i ≤ d := by
+        exact le_trans (eq (S i) (by rw [Finset.mem_image]; use i)) d₀led
+      exact Sdef i iinJ d dinIi this
+
+theorem lim_of_lim_of_subsequences {E: Type*} [LinearOrder E] [Inhabited E] {ι: Type*}
+  (J: Finset ι) (s: D → X) (x: X) (fs: ι → E → X) (fg: ι → E → D)
+  (ss: ∀ i ∈ J, StrictMono (fg i) ∧ fs i = s ∘ (fg i))
+  (cs: ∀ (d: D), ∃ i ∈ J, ∃ (e: E), d = (fg i) e) (sl: ∀ i ∈ J, Limit (fs i) x) :
+    Limit s x := by
+      classical
+      apply lim_of_lim_of_sub (fun (i: ι) ↦ if i ∈ J then range (fg i) else univ) J s x
+      · intro d
+        rcases cs d with ⟨i, iinJ, e, eq⟩
+        use i, iinJ
+        rw [if_pos iinJ, eq]
+        use e
+      · intro U Unhds i iinJ
+        rcases sl i iinJ U Unhds with ⟨e₀, eq⟩
+        use (fg i e₀)
+        rw [if_pos iinJ]
+        constructor
+        · use e₀
+        · intro d ⟨din, led⟩
+          rcases din with ⟨e, deq⟩
+          rw [← deq, ← @comp_apply _ _ _ s, ← (ss i iinJ).2]
+          rw [← deq] at led
+          exact eq e ((StrictMono.le_iff_le (ss i iinJ).1).mp led)
+
 /- Subsequences are subnets -/
 theorem subnet_of_subsequence {X: Type*} (s s' : ℕ → X) :
   (∃ (i: ℕ → ℕ), StrictMono i ∧ s' = s ∘ i) → Subnet s s' := by
@@ -409,60 +454,6 @@ theorem cauchyNet_bdd {s: ℕ → M}:
     intro cauchys
     rw [← cauchySeq_iff_cauchynet] at cauchys
     exact cauchySeq_bdd cauchys
-
-/- Operations on CauchyNets -/
-
-theorem cauchynet_neg {s: D → Z} [AddGroup Z] [UniformAddGroup Z] :
-  CauchyNet s → CauchyNet (fun (d: D) ↦ - (s d)) := by
-    simp only [← cauchySeq_iff_cauchynet]
-    exact CauchySeq.neg
-
-theorem cauchynet_inv {s: D → Z}  [Group Z] [UniformGroup Z] :
-  CauchyNet s → CauchyNet (fun (d: D) ↦ (s d)⁻¹) := by
-    simp only [← cauchySeq_iff_cauchynet]
-    exact CauchySeq.inv
-
-theorem cauchynet_add {s t: D → Z} [AddGroup Z] [UniformAddGroup Z] :
-  CauchyNet s → CauchyNet t → CauchyNet (fun (d: D) ↦ s d + t d) := by
-    simp only [← cauchySeq_iff_cauchynet]
-    exact CauchySeq.add
-
-theorem cauchynet_const_mul {s: D → Z} {x: Z} [Group Z] [UniformGroup Z] :
-  CauchyNet s → CauchyNet (fun (d: D) ↦ x * s d) := by
-    simp only [← cauchySeq_iff_cauchynet]
-    exact CauchySeq.const_mul
-
-theorem cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
-  [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} (a: 𝕜) :
-  CauchyNet s → CauchyNet (fun (d: D) ↦ a • (s d)) := by
-    simp only [cauchy_metric_iff, dist_eq_norm]
-    intro cauchys
-    by_cases h: a = 0
-    · simp only [h, zero_smul, sub_zero, norm_zero]
-      intro ε εpos
-      use default
-      intro d e _ _
-      exact εpos
-    · intro ε εpos
-      rcases cauchys (ε * ‖a‖⁻¹)
-        (mul_pos εpos (inv_pos_of_pos (norm_pos_iff.mpr h))) with ⟨d₀, eq⟩
-      use d₀
-      intro d e d₀led d₀lee
-      rw [← smul_sub, norm_smul, ← lt_mul_inv_iff₀' (norm_pos_iff.mpr h)]
-      exact eq d e d₀led d₀lee
-
-theorem cauchynet_iff_cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
-  [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} (a: 𝕜) (anezero: a ≠ 0) :
-  CauchyNet s ↔ CauchyNet (fun (d: D) ↦ a • (s d)) := by
-    constructor
-    · exact cauchynet_const_smul 𝕜 a
-    · intro cauchya
-      have := cauchynet_const_smul 𝕜 a⁻¹ cauchya
-      have : (fun d ↦ a⁻¹ • a • s d) = s := by
-        ext d
-        rw [← smul_assoc, smul_eq_mul, inv_mul_cancel₀ anezero, one_smul]
-      rw [← this]
-      assumption
 
 /- ### Construction of a representative sequence from a Cauchy net ### -/
 
