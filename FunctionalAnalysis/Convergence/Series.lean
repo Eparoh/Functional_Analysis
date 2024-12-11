@@ -1097,9 +1097,43 @@ theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
             norm_num
       linarith
 
+lemma aux (f f': ℕ → Y) (g: ℕ → ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
+  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
+  CauchySerie f ↔ CauchySerie (f' ∘ g) := by
+    simp only [cauchyserie_iff_vanishing_norm]
+    constructor
+    · intro h ε εpos
+      rcases h ε εpos with ⟨n₁, eq⟩
+      sorry
+    · sorry
+
 theorem BMCauchy_of_SCauchy (f: ℕ → Y) :
   BMCauchy f → SCauchy f := by
-    sorry
+    classical
+    unfold BMCauchy SCauchy
+    intro BMcf g incrg
+    let h: ℕ → ℝ := fun n ↦ if n ∈ range g then 1 else 0
+    have ranhbdd : Bornology.IsBounded (range h) := by
+      rw [NormedSpace.isBounded_iff_bounded_norm ℝ]
+      use 1, one_ne_zero
+      intro t tin
+      rcases tin with ⟨n, hneqt⟩
+      rw [← hneqt, Real.norm_eq_abs, Real.norm_eq_abs]
+      dsimp only [h]
+      by_cases h': n ∈ range g
+      · rw [if_pos h']
+      · rw [if_neg h']
+        norm_num
+    rw [← aux (fun n ↦ h n • f n) f]
+    · exact BMcf h ranhbdd
+    · assumption
+    · ext n
+      simp only [comp_apply]
+      unfold h
+      rw [if_pos (by use n), one_smul]
+    · intro n nnin
+      unfold h
+      rw [if_neg nnin, zero_smul]
 
 theorem CauchySum_of_SCauchy  (f: ℕ → Y) :
   SCauchy f → CauchySumNet f := by

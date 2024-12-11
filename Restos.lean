@@ -149,3 +149,9 @@ theorem completespace_iff_conv_abs_imp_conv :
       · assumption
       · exact limit_lessone_zero_inv (one_lt_two)
       · exact sFlimitx
+
+theorem Real_archimedean (x y : ℝ) : (0 < x) → ∃ (n : ℕ), y < n * x := by
+  intro x_pos
+  have := exists_lt_nsmul x_pos y
+  simp only [nsmul_eq_mul] at this
+  assumption

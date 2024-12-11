@@ -69,20 +69,20 @@ theorem lim_of_cte (x: X): Limit (fun (_: D) ↦ x) x := by
 /- Negation of convergent net is convergent -/
 theorem lim_of_neg_eq_neg_of_lim [Neg X] [h: ContinuousNeg X]
   {s: D → X} {x: X}:
-  Limit s x → Limit (fun (d: D) ↦ - (s d)) (-x) := by
+  Limit s x → Limit (fun d ↦ -(s d)) (-x) := by
     exact limfunnet_of_continuousAt (fun (z: X) ↦ -z) x
       (continuous_iff_continuousAt.mp h.continuous_neg x)
 
 /- Limit of inverse -/
 theorem lim_of_inv_eq_inv_of_lim [Inv X] [h: ContinuousInv X]
   {s: D → X} {x: X} :
-  Limit s x  →  Limit (fun (d: D) ↦ (s d)⁻¹) (x⁻¹):= by
+  Limit s x  →  Limit (fun d ↦ (s d)⁻¹) (x⁻¹):= by
     exact limfunnet_of_continuousAt (fun (z: X) ↦ z⁻¹) x
       (continuous_iff_continuousAt.mp h.continuous_inv x)
 
 theorem lim_of_inv_eq_inv_of_lim₀ [Inv X] [Zero X] [h: HasContinuousInv₀ X]
   {s: D → X} {x: X} (nez: x ≠ 0) :
-  Limit s x  →  Limit (fun (d: D) ↦ (s d)⁻¹) (x⁻¹):= by
+  Limit s x  →  Limit (fun d ↦ (s d)⁻¹) (x⁻¹):= by
     exact limfunnet_of_continuousAt (fun (z: X) ↦ z⁻¹) x
       (h.continuousAt_inv₀ nez)
 
@@ -96,27 +96,27 @@ theorem lim_of_sums_eq_sums_of_lim  [AddCommMonoid X]
 
 theorem lim_of_sum_eq_sum_of_lim [Add X] [h: ContinuousAdd X]
   {s t: D → X} {x y: X}:
-  Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) + (t d)) (x + y) := by
+  Limit s x → Limit t y → Limit (fun d ↦ s d + t d) (x + y) := by
     exact limfunnet_of_continuousAt'
       (continuous_iff_continuousAt.mp h.continuous_add (x, y))
 
 theorem lim_of_mul_eq_mul_of_lim [Mul X] [h: ContinuousMul X]
   {s t: D → X} {x y: X}:
-  Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) * (t d)) (x * y) := by
+  Limit s x → Limit t y → Limit (fun d ↦ s d * t d) (x * y) := by
     exact limfunnet_of_continuousAt'
       (continuous_iff_continuousAt.mp h.continuous_mul (x, y))
 
 /- Difference of convergent nets is convergent -/
 theorem lim_of_sub_eq_sub_of_lim [Sub X] [h: ContinuousSub X]
   {s t: D → X} {x y: X} :
-  Limit s x → Limit t y → Limit (fun (d: D) ↦ (s d) - (t d)) (x - y) := by
+  Limit s x → Limit t y → Limit (fun d ↦ s d - t d) (x - y) := by
     exact limfunnet_of_continuousAt'
       (continuous_iff_continuousAt.mp h.continuous_sub (x, y))
 
 /- Product of scalar and convergent nets is convergent -/
 theorem prod_num_conv {R: Type*} [TopologicalSpace R] [SMul R X]
   [h: ContinuousSMul R X] {x: X} {s: D → X} (r: R):
-  Limit s x → Limit (fun (d: D) ↦ r • (s d)) (r • x) := by
+  Limit s x → Limit (fun d ↦ r • s d) (r • x) := by
     intro slimitx
     exact limfunnet_of_continuousAt'
       (continuous_iff_continuousAt.mp h.continuous_smul (r, x))
@@ -125,17 +125,17 @@ theorem prod_num_conv {R: Type*} [TopologicalSpace R] [SMul R X]
 /- Operations on CauchyNets -/
 
 theorem cauchynet_neg {s: D → Z} [AddGroup Z] [UniformAddGroup Z] :
-  CauchyNet s → CauchyNet (fun (d: D) ↦ - (s d)) := by
+  CauchyNet s → CauchyNet (fun d ↦ -(s d)) := by
     simp only [← cauchySeq_iff_cauchynet]
     exact CauchySeq.neg
 
 theorem cauchynet_inv {s: D → Z}  [Group Z] [UniformGroup Z] :
-  CauchyNet s → CauchyNet (fun (d: D) ↦ (s d)⁻¹) := by
+  CauchyNet s → CauchyNet (fun d ↦ (s d)⁻¹) := by
     simp only [← cauchySeq_iff_cauchynet]
     exact CauchySeq.inv
 
 theorem cauchynet_add {s t: D → Z} [AddGroup Z] [UniformAddGroup Z] :
-  CauchyNet s → CauchyNet t → CauchyNet (fun (d: D) ↦ s d + t d) := by
+  CauchyNet s → CauchyNet t → CauchyNet (fun d ↦ s d + t d) := by
     simp only [← cauchySeq_iff_cauchynet]
     exact CauchySeq.add
 
@@ -146,7 +146,7 @@ theorem cauchynet_const_mul {s: D → Z} {x: Z} [Group Z] [UniformGroup Z] :
 
 theorem cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
   [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} (a: 𝕜) :
-  CauchyNet s → CauchyNet (fun (d: D) ↦ a • (s d)) := by
+  CauchyNet s → CauchyNet (fun d ↦ a • s d) := by
     simp only [cauchy_metric_iff, dist_eq_norm]
     intro cauchys
     by_cases h: a = 0
@@ -160,12 +160,14 @@ theorem cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
         (mul_pos εpos (inv_pos_of_pos (norm_pos_iff.mpr h))) with ⟨d₀, eq⟩
       use d₀
       intro d e d₀led d₀lee
-      rw [← smul_sub, norm_smul, ← lt_mul_inv_iff₀' (norm_pos_iff.mpr h)]
+      rw [← smul_sub, norm_smul,
+          ← lt_mul_inv_iff₀' (norm_pos_iff.mpr h)]
       exact eq d e d₀led d₀lee
 
-theorem cauchynet_iff_cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y] (𝕜: Type*)
-  [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} (a: 𝕜) (anezero: a ≠ 0) :
-  CauchyNet s ↔ CauchyNet (fun (d: D) ↦ a • (s d)) := by
+theorem cauchynet_iff_cauchynet_const_smul {Y: Type*} [SeminormedAddCommGroup Y]
+  (𝕜: Type*) [NontriviallyNormedField 𝕜] [NormedSpace 𝕜 Y] {s: D → Y} (a: 𝕜)
+  (anezero: a ≠ 0) :
+  CauchyNet s ↔ CauchyNet (fun d ↦ a • s d) := by
     constructor
     · exact cauchynet_const_smul 𝕜 a
     · intro cauchya
