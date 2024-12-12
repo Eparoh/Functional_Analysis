@@ -97,3 +97,6 @@ lemma Finset.sum_Iic_telescopic {M: Type*} [AddCommGroup M] {f : ℕ → M} {N :
     · push_neg at h
       rw [Nat.lt_one_iff] at h
       rw [h, Finset.sum_Iic_zero]
+
+lemma Finset.Icc_eq_Iic (n: ℕ) : Finset.Iic n = Finset.Icc 0 n := by
+  rfl
