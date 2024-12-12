@@ -1097,6 +1097,141 @@ theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
             norm_num
       linarith
 
+section ZeroSums
+
+variable {α: Type*} (f f': ℕ → M) (g: ℕ → ℕ) {n m : ℕ}
+
+lemma mem_range_of_fnez (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
+  ∀ (k: ℕ), f k ≠ 0 → ∃ (p: ℕ), k = g p := by
+    intro k fknez
+    by_contra! h
+    have : k ∉ range g := by
+      intro kin
+      rw [mem_range] at kin
+      rcases kin with ⟨p, gpeqk⟩
+      have := (h p).symm
+      contradiction
+    have := fz k this
+    contradiction
+
+lemma Icc_image_sub_image_Icc (incr: StrictMono g) (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
+  ∀ a ∈ Finset.Icc (g n) (g m), f a ≠ 0 → a ∈ Finset.image g (Finset.Icc n m) := by
+    intro k kin fknez
+    rcases (mem_range_of_fnez f g fz) k fknez with ⟨p, keqgp⟩
+    rw [Finset.mem_image]
+    use p
+    constructor
+    · rw [Finset.mem_Icc] at *
+      rw [keqgp, StrictMono.le_iff_le incr, StrictMono.le_iff_le incr] at kin
+      assumption
+    · exact keqgp.symm
+
+lemma mem_Icc_image_and_nzero_of_mem_image_Icc_and_nzero (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g) :
+  ∀ b ∈ Finset.image g (Finset.Icc n m), f' b ≠ 0 → b ∈ Finset.Icc (g n) (g m) ∧ f b ≠ 0 := by
+    intro b bin f'bnez
+    rw [Finset.mem_image] at bin
+    rcases bin with ⟨a, ain, gaeqb⟩
+    rw [← gaeqb]
+    constructor
+    · rw [Finset.mem_Icc, StrictMono.le_iff_le incr, StrictMono.le_iff_le incr, ← Finset.mem_Icc]
+      assumption
+    · rw [← @comp_apply _ _ _ f, eqcomp, comp_apply, gaeqb]
+      assumption
+
+lemma sum_of_comp_eq (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
+  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
+    ∑ k ∈ Finset.Icc n m, f' (g k) = ∑ k ∈ Finset.Icc (g n) (g m), f k := by
+    have : ∑ k ∈ Finset.Icc n m, f' (g k) =
+      ∑ k ∈ Finset.image g (Finset.Icc n m), f' k := by
+        rw [eq_comm]
+        apply Finset.sum_image
+        intro k _ p _ gkeqgp
+        exact StrictMono.injective incr gkeqgp
+    rw [this, eq_comm]
+    apply Finset.sum_bij_ne_zero (fun (a: ℕ) (h: a ∈ Finset.Icc (g n) (g m))
+      (h': f a ≠ 0) ↦ a) (Icc_image_sub_image_Icc f g incr fz)
+    · intros
+      assumption
+    · simp only [exists_prop, exists_eq_right_right]
+      exact mem_Icc_image_and_nzero_of_mem_image_Icc_and_nzero f f' g incr eqcomp
+    · intro k _ fknez
+      rcases mem_range_of_fnez f g fz k fknez with ⟨p, keqgp⟩
+      rw [keqgp, ← @comp_apply _ _ _ f, ← @comp_apply _ _ _ f', eqcomp]
+
+lemma nezero_ge_nonempty (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
+  {k | n ≤ k ∧ f k ≠ 0}.Nonempty := by
+    rcases fnez with ⟨k, kin, fknez⟩
+    use k
+    rw [Finset.mem_Icc] at kin
+    exact And.intro kin.1 fknez
+
+lemma sInf_in_range (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
+  ∃ (k: ℕ), g k = (sInf {k | n ≤ k ∧ f k ≠ 0}) := by
+    rw [← mem_range]
+    by_contra! h
+    have feqz := fz _ h
+    have := (Nat.sInf_mem (nezero_ge_nonempty f fnez)).2
+    contradiction
+
+lemma nezero_le_nonempty (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
+  {k | k ≤ m ∧ f k ≠ 0}.Nonempty := by
+    rcases fnez with ⟨k, kin, fknez⟩
+    use k
+    rw [Finset.mem_Icc] at kin
+    exact And.intro kin.2 fknez
+
+lemma bddabove_le_nonempty :
+  BddAbove {k | k ≤ m ∧ f k ≠ 0} := by
+    use m
+    rw [mem_upperBounds]
+    intro k kin
+    exact kin.1
+
+lemma sSup_in_range (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
+  ∃ (k: ℕ), g k = (sSup {k | k ≤ m ∧ f k ≠ 0}) := by
+    rw [← mem_range]
+    by_contra! h
+    have feqz := fz _ h
+    have := (Nat.sSup_mem (nezero_le_nonempty f fnez) (bddabove_le_nonempty f)).2
+    contradiction
+
+lemma Nat.le_sSup {s: Set ℕ} (sbdd: BddAbove s) {k: ℕ} :
+  k ∈ s → k ≤ sSup s := by
+    classical
+    intro kins
+    have := Nat.find_spec (sbdd)
+    rw [mem_upperBounds] at this
+    rw [sSup_def sbdd]
+    exact this k kins
+
+lemma sum_eq_sum_with_no_extra_zeros (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
+  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
+    ∑ k ∈ Finset.Icc n m, f k =
+    ∑ k ∈ Finset.Icc (invFun g (sInf {k: ℕ | n ≤ k ∧ f k ≠ 0}))
+      (invFun g (sSup {k: ℕ | k ≤ m ∧ f k ≠ 0})), f' (g k) := by
+        rw [sum_of_comp_eq f f' g incr eqcomp fz]
+        rw [Function.invFun_eq (sInf_in_range f g fz fnez),
+            Function.invFun_eq (sSup_in_range f g fz fnez)]
+        rw [eq_comm]
+        apply Finset.sum_subset
+        · apply Finset.Icc_subset_Icc
+          · exact (Nat.sInf_mem (nezero_ge_nonempty f fnez)).1
+          · exact (Nat.sSup_mem (nezero_le_nonempty f fnez)
+              (bddabove_le_nonempty f)).1
+        · intro k kinnm knin
+          rw [Finset.mem_Icc] at *
+          by_contra! h
+          have : k ∈ {k | n ≤ k ∧ f k ≠ 0} := by
+            exact And.intro kinnm.1 h
+          have infle := Nat.sInf_le this
+          have : k ∈ {k | k ≤ m ∧ f k ≠ 0} := by
+            exact And.intro kinnm.2 h
+          have lesup := Nat.le_sSup (@bddabove_le_nonempty _ _ f m) this
+          have := And.intro infle lesup
+          contradiction
+
+end ZeroSums
+
 lemma aux (f f': ℕ → Y) (g: ℕ → ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
   (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
   CauchySerie f ↔ CauchySerie (f' ∘ g) := by
