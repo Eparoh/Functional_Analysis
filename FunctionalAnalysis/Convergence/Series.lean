@@ -378,6 +378,130 @@ theorem not_cauchyserie_imp (f: ℕ → Y) :
             exact (not_cauchyserie_imp_aux_def
                (fun n m ↦ ε₀ ≤ ‖∑ i ∈ Finset.Ioc n m, f i‖) eq n).2.2
 
+/- ### Series with zeros ### -/
+
+theorem cauchyserie_extra_zeros_iff_cauchyserie {Y: Type*} [NormedAddCommGroup Y]
+  (f f': ℕ → Y) (g: ℕ → ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
+  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
+  CauchySerie f ↔ CauchySerie (f' ∘ g) := by
+    simp only [cauchyserie_iff_vanishing_norm'']
+    constructor
+    · intro h ε εpos
+      rcases h ε εpos with ⟨n₀, eq⟩
+      use n₀
+      intro n m n₀len nlem
+      simp only [comp_apply, ← Nat.Icc_succ_left n m, Nat.succ_eq_add_one,
+                 sum_of_comp_eq (n + 1) m incr eqcomp fz]
+      simp only [← Nat.Icc_succ_left] at eq
+      have le1 : n₀ ≤ (g (n + 1)) -1 := by
+        apply Nat.le_sub_of_add_le
+        exact le_trans (StrictMono.le_apply incr)
+          (StrictMono.monotone incr (Nat.add_le_add_right n₀len 1))
+      have le2 : g (n + 1) - 1 < g m := by
+        calc
+          g (n + 1) - 1 < g (n + 1) := by
+            apply Nat.sub_one_lt
+            rw [Nat.ne_zero_iff_zero_lt]
+            exact StrictMono.pos_add_one incr n
+          _ ≤ g m := by
+            exact StrictMono.monotone incr nlem
+      have := eq (g (n + 1) - 1) (g m) le1 le2
+      rw [Nat.succ_eq_add_one, Nat.sub_one_add_one_eq_of_pos
+          (StrictMono.pos_add_one incr n)] at this
+      assumption
+    · intro h ε εpos
+      rcases h ε εpos with ⟨n₀, eq⟩
+      use g (n₀ + 1)
+      intro n m len nltm
+      by_cases fnez: ∃ k ∈ Finset.Icc (n + 1) m, f k ≠ 0
+      · have fnez1 := (exists_le_and_ge_of_exists_Icc fnez).1
+        have fnez2 := (exists_le_and_ge_of_exists_Icc fnez).2
+        rw [← Nat.Icc_succ_left n m,
+            sum_eq_sum_with_no_extra_zeros (n + 1) m incr eqcomp fz fnez]
+        simp only [← Nat.Icc_succ_left, Nat.succ_eq_add_one] at eq
+        have gzltn : g 0 < n := by
+          apply lt_of_lt_of_le _ len
+          rw [StrictMono.lt_iff_lt incr]
+          exact Nat.zero_lt_succ n₀
+        have le1 : n₀ ≤ invFun g (sInf {k | n + 1 ≤ k ∧ f k ≠ 0}) - 1 := by
+          rw [Nat.le_sub_one_iff_lt]
+          · have : g n₀ < n + 1 := by
+              have := lt_of_lt_of_le (incr (lt_add_one n₀)) len
+              exact lt_trans this (lt_add_one n)
+            exact lt_invFun_sInf (n + 1) n₀ this incr fz fnez1
+          · apply invFun_sInf_pos incr _ fz fnez1
+            exact lt_trans gzltn (lt_add_one n)
+        have le2 : invFun g (sInf {k | n + 1 ≤ k ∧ f k ≠ 0}) - 1 <
+          invFun g (sSup {k | k ≤ m ∧ f k ≠ 0}) := by
+            apply Nat.sub_one_lt_of_le
+            · exact invFun_sInf_pos incr (Nat.lt_trans gzltn (lt_add_one n)) fz fnez1
+            · rw [← StrictMono.le_iff_le incr, Function.invFun_eq
+                 (sInf_in_range (n + 1) fz fnez1), Function.invFun_eq
+                 (sSup_in_range m fz fnez2)]
+              exact sInfge_le_sSuple (n + 1) m fnez
+        have := eq (invFun g (sInf {k | n + 1 ≤ k ∧ f k ≠ 0}) - 1)
+          (invFun g (sSup {k | k ≤ m ∧ f k ≠ 0})) le1 le2
+        rw [Nat.sub_one_add_one_eq_of_pos _] at this
+        · assumption
+        · exact invFun_sInf_pos incr (Nat.lt_trans gzltn (lt_add_one n)) fz fnez1
+      · push_neg at fnez
+        rw [← Nat.Icc_succ_left, Nat.succ_eq_add_one, Finset.sum_eq_zero fnez,
+            norm_zero]
+        assumption
+
+theorem limserie_extra_zeros_iff_limserie {Y: Type*} [NormedAddCommGroup Y]
+  (f f': ℕ → Y) (g: ℕ → ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
+  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) (x: Y) :
+  lim_serie f x ↔ lim_serie (f' ∘ g) x := by
+    simp only [lim_serie_eps]
+    constructor
+    · intro h ε εpos
+      rcases h ε εpos with ⟨n₀, eq⟩
+      use n₀
+      intro n n₀len
+      simp only [comp_apply, Nat.succ_eq_add_one, Finset.Icc_eq_Iic n,
+                 sum_of_comp_eq 0 n incr eqcomp fz, sum_gz_eq_sum_zero incr fz]
+      exact eq (g n) (Nat.le_trans n₀len (StrictMono.le_apply incr))
+    · intro h ε εpos
+      rcases h ε εpos with ⟨n₀, eq⟩
+      by_cases h': ∃ n ≥ n₀, f (g n) ≠ 0
+      · rcases h' with ⟨n₁, n₀len₁, fgn₁neqz⟩
+        use g n₁
+        intro n len
+        have fnez : ∃ k ∈ Finset.Icc 0 n, f k ≠ 0 := by
+          use g n₁
+          rw [Finset.mem_Icc]
+          exact And.intro (And.intro (zero_le (g n₁)) len) fgn₁neqz
+        have fnez1 := (exists_le_and_ge_of_exists_Icc fnez).1
+        have fnez2 := (exists_le_and_ge_of_exists_Icc fnez).2
+        rw [Finset.Icc_eq_Iic,
+            sum_eq_sum_with_no_extra_zeros 0 n incr eqcomp fz fnez]
+        simp only [← @comp_apply _ _ _ f', ← eqcomp, @comp_apply _ _ _ f] at *
+        simp only [sum_invFun_eq_sum_zero (invFun g (sSup {k | k ≤ n ∧ f k ≠ 0})) incr fz fnez1]
+        exact eq (invFun g (sSup {k | k ≤ n ∧ f k ≠ 0}))
+            (Nat.le_trans n₀len₁ (le_invFun_sSup n n₁ len incr fz fgn₁neqz fnez2))
+      · push_neg at h'
+        simp only [comp_apply, Finset.Icc_eq_Iic,
+                   sum_of_comp_eq 0 _ incr eqcomp fz, sum_gz_eq_sum_zero incr fz] at eq
+        have eqsum : ∀ n ≥ (g n₀), ∑ i ∈ Finset.Icc 0 n, f i =
+          ∑ i ∈ Finset.Icc 0 (g n₀), f i := by
+            intro n gn₀len
+            rw [eq_comm]
+            apply Finset.sum_subset
+            · exact Finset.Icc_subset_Icc (le_refl 0) gn₀len
+            · intro k kin knin
+              by_cases kinran: k ∈ range g
+              · rcases kinran with ⟨p, gpeqk⟩
+                rw [← gpeqk]
+                simp only [Finset.mem_Icc, zero_le, true_and,
+                           not_le, ← gpeqk, StrictMono.lt_iff_lt incr] at knin
+                exact h' p (le_of_lt knin)
+              · exact fz k kinran
+        use g n₀
+        intro n len
+        rw [Finset.Icc_eq_Iic, eqsum n len]
+        exact eq n₀ (le_refl n₀)
+
 /- ### Equivalence between Cauchy and convergence ### -/
 
 theorem conv_serie_iff_cauchyserie [h: CompleteSpace Y] (f: ℕ → Y):
@@ -1112,293 +1236,6 @@ theorem BMCauchy_iff_ACauchy (f: ℕ → Y) :
           _ = ε₀ := by
             norm_num
       linarith
-
-section ZeroSums
-
-variable {f f': ℕ → M} {g: ℕ → ℕ} {n m : ℕ}
-
-lemma mem_range_of_fnez (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
-  ∀ (k: ℕ), f k ≠ 0 → ∃ (p: ℕ), k = g p := by
-    intro k fknez
-    by_contra! h
-    have : k ∉ range g := by
-      intro kin
-      rw [mem_range] at kin
-      rcases kin with ⟨p, gpeqk⟩
-      have := (h p).symm
-      contradiction
-    have := fz k this
-    contradiction
-
-lemma Icc_image_sub_image_Icc (incr: StrictMono g) (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
-  ∀ a ∈ Finset.Icc (g n) (g m), f a ≠ 0 → a ∈ Finset.image g (Finset.Icc n m) := by
-    intro k kin fknez
-    rcases (mem_range_of_fnez fz) k fknez with ⟨p, keqgp⟩
-    rw [Finset.mem_image]
-    use p
-    constructor
-    · rw [Finset.mem_Icc] at *
-      rw [keqgp, StrictMono.le_iff_le incr, StrictMono.le_iff_le incr] at kin
-      assumption
-    · exact keqgp.symm
-
-lemma mem_Icc_image_and_nzero_of_mem_image_Icc_and_nzero (incr: StrictMono g)
-  (eqcomp: f ∘ g = f' ∘ g) :
-  ∀ b ∈ Finset.image g (Finset.Icc n m), f' b ≠ 0 →
-    b ∈ Finset.Icc (g n) (g m) ∧ f b ≠ 0 := by
-      intro b bin f'bnez
-      rw [Finset.mem_image] at bin
-      rcases bin with ⟨a, ain, gaeqb⟩
-      rw [← gaeqb]
-      constructor
-      · rw [Finset.mem_Icc, StrictMono.le_iff_le incr, StrictMono.le_iff_le incr, ← Finset.mem_Icc]
-        assumption
-      · rw [← @comp_apply _ _ _ f, eqcomp, comp_apply, gaeqb]
-        assumption
-
-lemma sum_of_comp_eq (n m: ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
-  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
-    ∑ k ∈ Finset.Icc n m, f' (g k) = ∑ k ∈ Finset.Icc (g n) (g m), f k := by
-    have : ∑ k ∈ Finset.Icc n m, f' (g k) =
-      ∑ k ∈ Finset.image g (Finset.Icc n m), f' k := by
-        rw [eq_comm]
-        apply Finset.sum_image
-        intro k _ p _ gkeqgp
-        exact StrictMono.injective incr gkeqgp
-    rw [this, eq_comm]
-    apply Finset.sum_bij_ne_zero (fun (a: ℕ) (h: a ∈ Finset.Icc (g n) (g m))
-      (h': f a ≠ 0) ↦ a) (Icc_image_sub_image_Icc incr fz)
-    · intros
-      assumption
-    · simp only [exists_prop, exists_eq_right_right]
-      exact mem_Icc_image_and_nzero_of_mem_image_Icc_and_nzero incr eqcomp
-    · intro k _ fknez
-      rcases mem_range_of_fnez fz k fknez with ⟨p, keqgp⟩
-      rw [keqgp, ← @comp_apply _ _ _ f, ← @comp_apply _ _ _ f', eqcomp]
-
-lemma nezero_ge_nonempty (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
-  {k | n ≤ k ∧ f k ≠ 0}.Nonempty := by
-    rcases fnez with ⟨k, kin, fknez⟩
-    use k
-    rw [Finset.mem_Icc] at kin
-    exact And.intro kin.1 fknez
-
-lemma sInf_in_range (fz: ∀ (n: ℕ), n ∉ range g → f n = 0)
-  (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
-  ∃ (k: ℕ), g k = (sInf {k | n ≤ k ∧ f k ≠ 0}) := by
-    rw [← mem_range]
-    by_contra! h
-    have feqz := fz _ h
-    have := (Nat.sInf_mem (nezero_ge_nonempty fnez)).2
-    contradiction
-
-lemma nezero_le_nonempty (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
-  {k | k ≤ m ∧ f k ≠ 0}.Nonempty := by
-    rcases fnez with ⟨k, kin, fknez⟩
-    use k
-    rw [Finset.mem_Icc] at kin
-    exact And.intro kin.2 fknez
-
-lemma bddabove_le_nonempty :
-  BddAbove {k | k ≤ m ∧ f k ≠ 0} := by
-    use m
-    rw [mem_upperBounds]
-    intro k kin
-    exact kin.1
-
-lemma sSup_in_range (fz: ∀ (n: ℕ), n ∉ range g → f n = 0)
-  (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
-  ∃ (k: ℕ), g k = (sSup {k | k ≤ m ∧ f k ≠ 0}) := by
-    rw [← mem_range]
-    by_contra! h
-    have feqz := fz _ h
-    have := (Nat.sSup_mem (nezero_le_nonempty fnez) bddabove_le_nonempty).2
-    contradiction
-
-lemma Nat.le_sSup {s: Set ℕ} (sbdd: BddAbove s) {k: ℕ} :
-  k ∈ s → k ≤ sSup s := by
-    classical
-    intro kins
-    have := Nat.find_spec (sbdd)
-    rw [mem_upperBounds] at this
-    rw [sSup_def sbdd]
-    exact this k kins
-
-lemma sum_eq_sum_with_no_extra_zeros (n m: ℕ) (incr: StrictMono g)
-  (eqcomp: f ∘ g = f' ∘ g) (fz: ∀ (n: ℕ), n ∉ range g → f n = 0)
-  (fnez: ∃ k ∈ Finset.Icc n m, f k ≠ 0) :
-    ∑ k ∈ Finset.Icc n m, f k =
-    ∑ k ∈ Finset.Icc (invFun g (sInf {k: ℕ | n ≤ k ∧ f k ≠ 0}))
-      (invFun g (sSup {k: ℕ | k ≤ m ∧ f k ≠ 0})), f' (g k) := by
-        rw [sum_of_comp_eq (invFun g (sInf {k | n ≤ k ∧ f k ≠ 0}))
-            (invFun g (sSup {k | k ≤ m ∧ f k ≠ 0})) incr eqcomp fz]
-        rw [Function.invFun_eq (sInf_in_range fz fnez),
-            Function.invFun_eq (sSup_in_range fz fnez)]
-        rw [eq_comm]
-        apply Finset.sum_subset
-        · apply Finset.Icc_subset_Icc
-          · exact (Nat.sInf_mem (nezero_ge_nonempty fnez)).1
-          · exact (Nat.sSup_mem (nezero_le_nonempty fnez)
-              bddabove_le_nonempty).1
-        · intro k kinnm knin
-          rw [Finset.mem_Icc] at *
-          by_contra! h
-          have : k ∈ {k | n ≤ k ∧ f k ≠ 0} := by
-            exact And.intro kinnm.1 h
-          have infle := Nat.sInf_le this
-          have : k ∈ {k | k ≤ m ∧ f k ≠ 0} := by
-            exact And.intro kinnm.2 h
-          have lesup := Nat.le_sSup (@bddabove_le_nonempty _ _ f m) this
-          have := And.intro infle lesup
-          contradiction
-
-lemma StrictMono.pos (incr: StrictMono g) (npos: 0 < n) :
-  0 < g n := by
-    exact lt_of_le_of_lt (StrictMono.le_apply incr) (incr npos)
-
-lemma StrictMono.pos_add_one (incr: StrictMono g) (n: ℕ) :
-  0 < g (n + 1) := by
-    exact StrictMono.pos incr (Nat.zero_lt_succ n)
-
-lemma le_invFun_sInf (p : ℕ) (h: g (p + 1) ≤ n) (incr: StrictMono g)
-  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0)
-  (fnez: ∃ k ∈ Finset.Icc (n + 1) m, f k ≠ 0) :
-  p  ≤ invFun g (sInf {k | n + 1 ≤ k ∧ f k ≠ 0}) - 1 := by
-    apply Nat.le_sub_of_add_le
-    rw [← StrictMono.le_iff_le incr, Function.invFun_eq
-        (sInf_in_range fz fnez)]
-    by_contra! h
-    have := lt_of_le_of_lt (Nat.sInf_mem (nezero_ge_nonempty fnez)).1 h
-    linarith
-
-lemma invFun_sInf_pos (incr: StrictMono g) (gzltn: g 0 < n)
-  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0)
-  (fnez: ∃ k ∈ Finset.Icc (n + 1) m, f k ≠ 0) :
-  0 < invFun g (sInf {k | n + 1 ≤ k ∧ f k ≠ 0}) := by
-    rw [← StrictMono.lt_iff_lt incr, Function.invFun_eq
-        (sInf_in_range fz fnez)]
-    apply lt_of_lt_of_le gzltn
-    exact le_trans (Nat.le_add_right n 1)
-      (Nat.sInf_mem ((nezero_ge_nonempty fnez))).1
-
-lemma sInfge_le_sSuple
-  (fnez: ∃ k ∈ Finset.Icc (n + 1) m, f k ≠ 0) :
-    sInf {k | n + 1 ≤ k ∧ f k ≠ 0} ≤ sSup {k | k ≤ m ∧ f k ≠ 0} := by
-      rcases fnez with ⟨k, kin, fknez⟩
-      rw [Finset.mem_Icc] at kin
-      have kinge : k ∈ {k | n + 1 ≤ k ∧ f k ≠ 0} := by
-        exact And.intro kin.1 fknez
-      have kinle : k ∈ {k | k ≤ m ∧ f k ≠ 0} := by
-        exact And.intro kin.2 fknez
-      exact Nat.le_trans (Nat.sInf_le kinge)
-        (Nat.le_sSup bddabove_le_nonempty kinle)
-
-lemma invFun_sInf_lt_invFun_sSup (incr: StrictMono g) (gzltn: g 0 < n)
-  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0)
-  (fnez: ∃ k ∈ Finset.Icc (n + 1) m, f k ≠ 0) :
-  invFun g (sInf {k | n + 1 ≤ k ∧ f k ≠ 0}) - 1 <
-  invFun g (sSup {k | k ≤ m ∧ f k ≠ 0}) := by
-    apply Nat.sub_one_lt_of_le (invFun_sInf_pos incr gzltn fz fnez)
-    rw [← StrictMono.le_iff_le incr, Function.invFun_eq
-        (sInf_in_range fz fnez), Function.invFun_eq
-        (sSup_in_range fz fnez)]
-    exact sInfge_le_sSuple fnez
-
-lemma aaa (incr: StrictMono g) (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
-  ∑ k ∈ Finset.Icc (g 0) (g n), f k =
-  ∑ k ∈ Finset.Icc 0 (g n), f k := by
-    apply Finset.sum_subset
-    · apply Finset.Icc_subset_Icc
-      · exact StrictMono.le_apply incr
-      · rfl
-    · intro k kin knin
-      have : k ∉ range g := by
-        sorry
-      exact fz k this
-
-lemma bbb (incr: StrictMono g) (fz: ∀ (n: ℕ), n ∉ range g → f n = 0):
-  ∑ k ∈ Finset.Icc (invFun g (sInf {k | 0 ≤ k ∧ f k ≠ 0})) m, f (g k) =
-  ∑ k ∈ Finset.Icc 0 m, f (g k) := by
-    sorry
-
-end ZeroSums
-
-lemma cauchyserie_extra_zeros_iff_cauchyserie {Y: Type*} [NormedAddCommGroup Y]
-  (f f': ℕ → Y) (g: ℕ → ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
-  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) :
-  CauchySerie f ↔ CauchySerie (f' ∘ g) := by
-    simp only [cauchyserie_iff_vanishing_norm'']
-    constructor
-    · intro h ε εpos
-      rcases h ε εpos with ⟨n₀, eq⟩
-      use n₀
-      intro n m n₀len nlem
-      simp only [comp_apply, ← Nat.Icc_succ_left n m, Nat.succ_eq_add_one,
-                 sum_of_comp_eq (n + 1) m incr eqcomp fz]
-      simp only [← Nat.Icc_succ_left] at eq
-      have le1 : n₀ ≤ (g (n + 1)) -1 := by
-        apply Nat.le_sub_of_add_le
-        exact le_trans (StrictMono.le_apply incr)
-          (StrictMono.monotone incr (Nat.add_le_add_right n₀len 1))
-      have le2 : g (n + 1) - 1 < g m := by
-        calc
-          g (n + 1) - 1 < g (n + 1) := by
-            apply Nat.sub_one_lt
-            rw [Nat.ne_zero_iff_zero_lt]
-            exact StrictMono.pos_add_one incr n
-          _ ≤ g m := by
-            exact StrictMono.monotone incr nlem
-      have := eq (g (n + 1) - 1) (g m) le1 le2
-      rw [Nat.succ_eq_add_one, Nat.sub_one_add_one_eq_of_pos
-          (StrictMono.pos_add_one incr n)] at this
-      assumption
-    · intro h ε εpos
-      rcases h ε εpos with ⟨n₀, eq⟩
-      use g (n₀ + 1)
-      intro n m len nltm
-      by_cases fnez: ∃ k ∈ Finset.Icc (n + 1) m, f k ≠ 0
-      · rw [← Nat.Icc_succ_left n m,
-            sum_eq_sum_with_no_extra_zeros (n + 1) m incr eqcomp fz fnez]
-        simp only [← Nat.Icc_succ_left, Nat.succ_eq_add_one] at eq
-        have gzltn : g 0 < n := by
-          apply lt_of_lt_of_le _ len
-          rw [StrictMono.lt_iff_lt incr]
-          exact Nat.zero_lt_succ n₀
-        have := eq (invFun g (sInf {k | n + 1 ≤ k ∧ f k ≠ 0}) - 1)
-          (invFun g (sSup {k | k ≤ m ∧ f k ≠ 0}))
-          (le_invFun_sInf n₀ len incr fz fnez)
-          (invFun_sInf_lt_invFun_sSup incr gzltn fz fnez)
-        rw [Nat.sub_one_add_one_eq_of_pos _] at this
-        · assumption
-        · exact invFun_sInf_pos incr gzltn fz fnez
-      · push_neg at fnez
-        rw [← Nat.Icc_succ_left, Nat.succ_eq_add_one, Finset.sum_eq_zero fnez,
-            norm_zero]
-        assumption
-
-lemma limserie_extra_zeros_iff_limserie {Y: Type*} [NormedAddCommGroup Y]
-  (f f': ℕ → Y) (g: ℕ → ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘ g)
-  (fz: ∀ (n: ℕ), n ∉ range g → f n = 0) (x: Y) :
-  lim_serie f x ↔ lim_serie (f' ∘ g) x := by
-    simp only [lim_serie_eps]
-    constructor
-    · intro h ε εpos
-      rcases h ε εpos with ⟨n₀, eq⟩
-      use n₀
-      intro n n₀len
-      simp only [comp_apply, Nat.succ_eq_add_one, Finset.Icc_eq_Iic n,
-                 sum_of_comp_eq 0 n incr eqcomp fz, aaa incr fz]
-      exact eq (g n) (Nat.le_trans n₀len (StrictMono.le_apply incr))
-    · intro h ε εpos
-      rcases h ε εpos with ⟨n₀, eq⟩
-      use g n₀
-      intro n len
-      by_cases fnez: ∃ k ∈ Finset.Icc 0 n, f k ≠ 0
-      · rw [Finset.Icc_eq_Iic,
-            sum_eq_sum_with_no_extra_zeros 0 n incr eqcomp fz fnez]
-        simp only [Finset.Icc_eq_Iic] at eq
-        sorry
-      · sorry
 
 theorem BMCauchy_of_SCauchy (f: ℕ → Y) :
   BMCauchy f → SCauchy f := by
