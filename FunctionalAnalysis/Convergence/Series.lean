@@ -836,6 +836,19 @@ def BMCauchy (f: ℕ → Y) : Prop :=
 def ACauchy (f: ℕ → Y) : Prop :=
   ∀ (g: ℕ → ℝ), range g ⊆ {-1, 1} → CauchySerie (fun (n: ℕ) ↦ (g n) • (f n))
 
+theorem lim_of_comp_lim (f: ℕ → Y) (Rs: RSerie f) (x: Y) (g: ℕ → ℕ) :
+  Bijective g → (lim_serie (f ∘ g) x ↔ lim_serie f x) := by
+    sorry
+
+theorem unique_lim_RSerie (f: ℕ → Y) (Rs: RSerie f) (x: Y) :
+  (∃ (g: ℕ → ℕ), Bijective g ∧ lim_serie (f ∘ g) x) →
+  ∀ (g: ℕ → ℕ), Bijective g → lim_serie (f ∘ g) x := by
+    intro cond
+    rcases cond with ⟨g, bijg, fglimx⟩
+    have limfx := (lim_of_comp_lim f Rs x g bijg).mp fglimx
+    intro h bijh
+    exact (lim_of_comp_lim f Rs x h bijh).mpr limfx
+
 /- Equivalences -/
 
 theorem NormedSpace.isBounded_iff_bounded_norm (𝕜 : Type*) {E : Type*}
