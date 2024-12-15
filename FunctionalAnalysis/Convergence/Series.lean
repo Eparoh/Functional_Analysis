@@ -502,6 +502,74 @@ theorem limserie_extra_zeros_iff_limserie {Y: Type*} [NormedAddCommGroup Y]
         rw [Finset.Icc_eq_Iic, eqsum n len]
         exact eq n₀ (le_refl n₀)
 
+/- ### Decomposition of serie into subseries ### -/
+
+theorem aaa' {ι: Type*} (J: Finset ι) [h: Nonempty J] (f: ℕ → Y)
+  (g: ι → ℕ → ℕ) (gSM: ∀ j ∈ J, StrictMono (g j))
+  (disj: ∀ j ∈ J, ∀ i ∈ J, i ≠ j →
+   Disjoint (Finset.image (g j)) (Finset.image (g i)))
+  (un: ∀ (m: ℕ), ∃ j ∈ J, ∃ (n: ℕ), m = (g j) n)
+  (n: ℕ) (len: ∀ j ∈ J, (g j) 0 ≤ n) :
+    ∑ i ∈ Finset.Iic n, f i =
+    ∑ j ∈ J, (∑ i ∈ Finset.Iic (sSup ((g j) ⁻¹' (Iic n))) , f ((g j) i)) := by
+      sorry
+
+theorem aaa {ι: Type*} (J: Finset ι) [h: Nonempty J] (f: ℕ → Y)
+  (g: ι → ℕ → ℕ) (s: ι → Y) (gSM: ∀ j ∈ J, StrictMono (g j))
+  (disj: ∀ j ∈ J, ∀ i ∈ J, i ≠ j →
+   Disjoint (Finset.image (g j)) (Finset.image (g i)))
+  (un: ∀ (m: ℕ), ∃ j ∈ J, ∃ (n: ℕ), m = (g j) n) :
+   (∀ j ∈ J, lim_serie (f ∘ (g j)) (s j)) → lim_serie f (∑ j ∈ J, (s j)) := by
+    classical
+    simp only [lim_serie_eps]
+    intro cond ε εpos
+    have εJpos: 0 < ε / (J.card) := by
+      apply div_pos εpos
+      simp only [Nat.cast_pos, Finset.card_pos]
+      exact Finset.nonempty_coe_sort.mp h
+    have n_j : ∀ j ∈ J, ∃ (n₀: ℕ), ∀ (n : ℕ), n₀ ≤ n →
+      ‖∑ i ∈ Finset.Iic n, (f ∘ g j) i - s j‖ < ε / (J.card) := by
+      intro j jinJ
+      rcases cond j jinJ (ε / (J.card)) εJpos with ⟨n₀, eq⟩
+      use n₀
+    let N : ι → ℕ := fun j ↦ if h: ∃ (n₀: ℕ), ∀ (n : ℕ), n₀ ≤ n →
+      ‖∑ i ∈ Finset.Iic n, (f ∘ g j) i - s j‖ < ε / (J.card) then
+      Classical.choose h else 0
+    use Finset.max' (Finset.image (fun i: ι ↦ g i (N i)) J)
+      (Finset.Nonempty.image (Finset.nonempty_coe_sort.mp h)
+        (fun i: ι ↦ g i (N i)))
+    intro n len
+    have : ∀ j ∈ J, (g j) 0 ≤ n := by
+      sorry
+    rw [aaa' J f g gSM disj un n this, ← Finset.sum_sub_distrib]
+    calc
+      ‖∑ x ∈ J, (∑ i ∈ Finset.Iic (sSup (g x ⁻¹' Iic n)),
+         f (g x i) - s x)‖ ≤ ∑ x ∈ J, ‖∑ i ∈ Finset.Iic
+          (sSup (g x ⁻¹' Iic n)), f (g x i) - s x‖ := by
+            exact norm_sum_le J
+              fun i ↦ ∑ i_1 ∈ Finset.Iic (sSup (g i ⁻¹' Iic n)),
+                f (g i i_1) - s i
+      _ < ∑ x ∈ J, (ε / J.card) := by
+        apply Finset.sum_lt_sum_of_nonempty
+          (Finset.nonempty_coe_sort.mp h)
+        intro j jinJ
+        have Njle : N j ≤ sSup (g j ⁻¹' Iic n) := by
+          apply Nat.le_sSup
+          · sorry
+          · rw [mem_preimage, mem_Iic]
+            apply Nat.le_trans _ len
+            apply Finset.le_max'
+            rw [Finset.mem_image]
+            use j
+        simp only [N] at Njle
+        rw [dif_pos (cond j jinJ (ε/J.card) εJpos)] at Njle
+        exact Classical.choose_spec (cond j jinJ (ε/J.card) εJpos)
+          (sSup (g j ⁻¹' Iic n)) Njle
+      _ = ε := by
+        rw [Finset.sum_const, nsmul_eq_mul, mul_div_cancel₀]
+        simp only [Nat.cast_ne_zero, Finset.card_ne_zero]
+        exact Finset.nonempty_coe_sort.mp h
+
 /- ### Equivalence between Cauchy and convergence ### -/
 
 theorem conv_serie_iff_cauchyserie [h: CompleteSpace Y] (f: ℕ → Y):
@@ -528,28 +596,65 @@ theorem conv_abs_serie_iff_cauchyabsserie [CompleteSpace Y] (f: ℕ → Y):
 
 /- ### Characterization of completeness in term of absolute convergence -/
 
-theorem conv_serie_of_summable {f: ℕ → Y} :
-  SummableNet f → conv_serie f := by
-    intro fsumm
-    rcases fsumm with ⟨x, hassumf⟩
-    rw [hassumnet_eps] at hassumf
-    use x
-    rw [lim_serie_eps]
+theorem lim_serie_comp_of_hasnetsum {f: ℕ → Y} (g: ℕ → ℕ)
+  (gbij: Bijective g) (x: Y) :
+    HasSumNet f x → lim_serie (f ∘ g) x := by
+    rw [hassumnet_eps, lim_serie_eps]
+    intro fhassumx
     intro ε εpos
-    rcases hassumf ε εpos with ⟨F₀, eq⟩
-    by_cases h: F₀.Nonempty
-    · use F₀.max' h
+    rcases fhassumx ε εpos with ⟨F₀, eq⟩
+    let J₀ := Finset.preimage F₀ g ((fun _ _ _ _ eq ↦ (gbij.1 eq)))
+    by_cases h: J₀.Nonempty
+    · use J₀.max' h
       intro n len
-      have : F₀ ⊆ Finset.Iic n := by
-        intro m minF₀
-        rw [Finset.mem_Iic]
-        exact le_trans (Finset.le_max' F₀ m minF₀) len
-      exact eq (Finset.Iic n) this
+      simp only [Finset.Icc_eq_Iic, comp_apply, Finset.sum_image_inj gbij.1 0 n]
+      have : F₀ ⊆ Finset.image g (Finset.Icc 0 n) := by
+        intro m minJ₀
+        rw [Finset.mem_image]
+        rcases gbij.2 m with ⟨a, gaeqm⟩
+        use a
+        constructor
+        · rw [Finset.mem_Icc]
+          constructor
+          · exact zero_le a
+          · have : a ∈ J₀ := by
+              rw [Finset.mem_preimage, gaeqm]
+              assumption
+            exact Nat.le_trans (Finset.le_max' J₀ a this) len
+        · assumption
+      exact eq (Finset.image g (Finset.Icc 0 n)) this
     · rw [Finset.not_nonempty_iff_eq_empty] at h
-      simp only [h, Finset.empty_subset, forall_const] at eq
+      have : F₀ = ∅ := by
+        apply Finset.eq_empty_of_forall_not_mem
+        intro n ninF₀
+        rcases gbij.2 n with ⟨a, gaeqn⟩
+        have : a ∈ J₀ := by
+          rw [Finset.mem_preimage, gaeqn]
+          assumption
+        rw [h] at this
+        contradiction
+      simp only [this, Finset.empty_subset, forall_const] at eq
       use 0
       intro n zlen
-      exact eq (Finset.Iic n)
+      simp only [Finset.Icc_eq_Iic, comp_apply, Finset.sum_image_inj gbij.1 0 n]
+      exact eq (Finset.image g (Finset.Icc 0 n))
+
+theorem lim_serie_of_hasnetsum {f: ℕ → Y} (x: Y) :
+  HasSumNet f x → lim_serie f x := by
+    exact lim_serie_comp_of_hasnetsum _ bijective_id x
+
+theorem conv_serie_comp_of_summable {f: ℕ → Y} (g: ℕ → ℕ)
+  (gbij: Bijective g) :
+    SummableNet f → conv_serie (f ∘ g) := by
+      unfold SummableNet conv_serie
+      intro fsumm
+      rcases fsumm with ⟨x, fhassumx⟩
+      use x
+      exact lim_serie_comp_of_hasnetsum g gbij x fhassumx
+
+theorem conv_serie_of_summable {f: ℕ → Y} :
+  SummableNet f → conv_serie f := by
+    exact conv_serie_comp_of_summable _ bijective_id
 
 theorem summable_of_conv_abs_serie [CompleteSpace Y] {f: ℕ → Y} :
   conv_abs_serie f → SummableNet f := by
@@ -835,19 +940,6 @@ def BMCauchy (f: ℕ → Y) : Prop :=
 
 def ACauchy (f: ℕ → Y) : Prop :=
   ∀ (g: ℕ → ℝ), range g ⊆ {-1, 1} → CauchySerie (fun (n: ℕ) ↦ (g n) • (f n))
-
-theorem lim_of_comp_lim (f: ℕ → Y) (Rs: RSerie f) (x: Y) (g: ℕ → ℕ) :
-  Bijective g → (lim_serie (f ∘ g) x ↔ lim_serie f x) := by
-    sorry
-
-theorem unique_lim_RSerie (f: ℕ → Y) (Rs: RSerie f) (x: Y) :
-  (∃ (g: ℕ → ℕ), Bijective g ∧ lim_serie (f ∘ g) x) →
-  ∀ (g: ℕ → ℕ), Bijective g → lim_serie (f ∘ g) x := by
-    intro cond
-    rcases cond with ⟨g, bijg, fglimx⟩
-    have limfx := (lim_of_comp_lim f Rs x g bijg).mp fglimx
-    intro h bijh
-    exact (lim_of_comp_lim f Rs x h bijh).mpr limfx
 
 /- Equivalences -/
 
@@ -1394,3 +1486,47 @@ theorem RSerie_iff_Summable [CompleteSpace Y] (f: ℕ → Y) :
   RSerie f ↔ SummableNet f := by
     rw [RSerie_iff_RCauchy, netsummable_iff_cauchNet_finset]
     exact (CauchySum_iff_RCauchy f).symm
+
+/- Sum of unconditional convergent series -/
+
+theorem RSerie_of_Summable {Y: Type*} [NormedAddCommGroup Y] (f: ℕ → Y) :
+  SummableNet f → RSerie f := by
+    intro sumf
+    intro g bijg
+    exact conv_serie_comp_of_summable g bijg sumf
+
+theorem lim_of_comp_lim (f: ℕ → Y) (Rs: RSerie f) (x: Y) (g: ℕ → ℕ)
+  (gbij: Bijective g) :
+    (lim_serie (f ∘ g) x ↔ lim_serie f x) := by
+      sorry
+
+theorem unique_lim_RSerie (f: ℕ → Y) (Rs: RSerie f) (x: Y) :
+  (∃ (g: ℕ → ℕ), Bijective g ∧ lim_serie (f ∘ g) x) →
+  ∀ (g: ℕ → ℕ), Bijective g → lim_serie (f ∘ g) x := by
+    intro cond
+    rcases cond with ⟨g, bijg, fglimx⟩
+    have limfx := (lim_of_comp_lim f Rs x g bijg).mp fglimx
+    intro h bijh
+    exact (lim_of_comp_lim f Rs x h bijh).mpr limfx
+
+theorem Rserie_iff_bij_Rserie {Y: Type*} [NormedAddCommGroup Y]
+  (f: ℕ → Y) (g: ℕ → ℕ) (gbij: Bijective g) :
+    RSerie f ↔ RSerie (f ∘ g) := by
+      constructor
+      · intro Rsf
+        intro h bijh
+        rw [comp_assoc]
+        exact Rsf (g ∘ h) (Function.Bijective.comp gbij bijh)
+      · intro Rsfg
+        intro h bijh
+        have : Bijective (surjInv gbij.2) := by
+          constructor
+          · exact Function.injective_surjInv gbij.2
+          · rw [Function.surjective_iff_hasRightInverse]
+            use g
+            exact Function.leftInverse_surjInv gbij
+        have conv := Rsfg (surjInv gbij.2 ∘ h) (Function.Bijective.comp this bijh)
+        have : g ∘ (surjInv gbij.2) = id := by
+          ext n
+          exact Function.surjInv_eq gbij.2 n
+        rwa [← comp_assoc (f ∘ g), comp_assoc f, this, comp_id] at conv

@@ -377,3 +377,12 @@ lemma sum_invFun_eq_sum_zero (m: ℕ) (incr: StrictMono g)
           simp only [zero_le, ne_eq, true_and, mem_setOf_eq, not_not] at this
           assumption
         · linarith
+
+/- ### Sums of bijection composition ### -/
+
+lemma Finset.sum_image_inj (injg: Injective g) (n m: ℕ) :
+  ∑ i ∈ Finset.Icc n m , f (g i) = ∑ i ∈ Finset.image g (Finset.Icc n m), f i := by
+    rw [eq_comm]
+    apply Finset.sum_image
+    intro i _ j _ eq
+    exact injg eq
