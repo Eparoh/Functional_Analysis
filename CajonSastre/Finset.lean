@@ -4,7 +4,17 @@ set_option trace.Meta.Tactic.simp false
 
 open Set Filter Topology Function
 
-variable {M: Type*} [AddCommGroup M]
+variable {M: Type*} [AddCommMonoid M]
+variable {Y: Type*} [AddCommGroup Y]
+
+/- ### Miscellanea ### -/
+
+lemma Finset.union_deleted_mem {ι: Type*} [DecidableEq ι] (J: Finset ι) :
+  ∀ j ∈ J, J = (J \ {j}) ∪ {j} := by
+    intro j jinJ
+    rw [eq_comm, Finset.sdiff_union_self_eq_union, eq_comm,
+        Finset.left_eq_union, Finset.singleton_subset_iff]
+    exact jinJ
 
 /- ### Results about intervals ### -/
 
@@ -58,7 +68,7 @@ lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {f : ℕ → M} {n m : ℕ} (h : n ≤ m
       simp only [Nat.Icc_succ_left]
       exact ih (Nat.le_of_succ_le h)
 
-lemma Finset.sum_Iic_sub_Iic_eq_sum_Ioc {f : ℕ → M} {n m : ℕ} (h : n ≤ m) :
+lemma Finset.sum_Iic_sub_Iic_eq_sum_Ioc {f : ℕ → Y} {n m : ℕ} (h : n ≤ m) :
     ∑ i ∈ Finset.Iic m, f i - ∑ i ∈ Finset.Iic n, f i =
     ∑ i ∈ Finset.Ioc n m, f i := by
     rw [sub_eq_iff_eq_add]
@@ -70,7 +80,7 @@ lemma Finset.sum_Iic_zero {X: Type*} [AddCommMonoid X] (f: ℕ → X): ∑ n ≤
   rw [this]
   exact Finset.sum_singleton f 0
 
-lemma Finset.sum_succ {f : ℕ → M} {N : ℕ} (m: ℕ):
+lemma Finset.sum_succ {f : ℕ → Y} {N : ℕ} (m: ℕ):
   ∑ x ∈ Finset.Iic N, f (x + m) = ∑ x ∈ Finset.Icc m (N + m), f (x) := by
     induction' N with N ih
     · rw [Finset.sum_Iic_zero, zero_add, Finset.Icc_self, Finset.sum_singleton]
@@ -84,7 +94,7 @@ lemma Finset.sum_succ {f : ℕ → M} {N : ℕ} (m: ℕ):
         linarith
       rw [union, Finset.sum_union disj, add_right_cancel_iff, Finset.Icc_self, Finset.sum_singleton]
 
-lemma Finset.sum_Icc_sub_Icc {f : ℕ → M} {m n k : ℕ} (mlek: m ≤ k)
+lemma Finset.sum_Icc_sub_Icc {f : ℕ → Y} {m n k : ℕ} (mlek: m ≤ k)
   (klen : k ≤ n) : ∑ i ∈ Finset.Icc m n, f i - ∑ i ∈ Finset.Icc m k, f i = ∑ i ∈ Finset.Ioc k n, f i := by
   rw [Finset.Icc_union mlek klen, Finset.sum_union (Finset.Icc_disjoint (lt_add_one k)),
       add_comm, ← add_sub, sub_self, add_zero]
@@ -92,7 +102,7 @@ lemma Finset.sum_Icc_sub_Icc {f : ℕ → M} {m n k : ℕ} (mlek: m ≤ k)
     exact Nat.Icc_succ_left k n
   rw [this]
 
-lemma Finset.sum_Iic_telescopic {f : ℕ → M} {N : ℕ}:
+lemma Finset.sum_Iic_telescopic {f : ℕ → Y} {N : ℕ}:
   ∑ x ∈ Finset.Iic N, (f (x + 1) - f x) = f (N + 1) - f 0 := by
     by_cases h: 1 ≤ N
     · rw [Finset.sum_sub_distrib, Finset.sum_succ, Finset.sum_Iic_eq_sum_Ioc_add_Iic (Nat.zero_le N),Finset.sum_Iic_zero,
@@ -110,6 +120,158 @@ lemma Finset.sum_Iic_succ_top {f: ℕ → M} (n: ℕ) :
   ∑ i ∈ Finset.Iic n, f i + f (n + 1) := by
     simp only [Finset.Icc_eq_Iic,
     Finset.sum_Icc_succ_top (Nat.zero_le (n + 1))]
+
+theorem Finset.sum_decomp {ι: Type*} (J: Finset ι)
+  [Nonempty J] (f: ℕ → M) (g: ι → ℕ → ℕ) (gSM: ∀ j ∈ J, StrictMono (g j))
+  (disj: ∀ j ∈ J, ∀ i ∈ J, i ≠ j →
+   Disjoint (Set.range (g j)) (Set.range (g i)))
+  (un: ∀ (m: ℕ), ∃ j ∈ J, ∃ (n: ℕ), m = (g j) n)
+  (n: ℕ) :
+    ∑ i ∈ Finset.Iic n, f i =
+    ∑ j ∈ J, (∑ i ∈ {i ∈ Finset.Iic n | g j i ≤ n}, f ((g j) i)) := by
+      classical
+      induction' n with n ih
+      · have : ∃ j ∈ J, g j 0 = 0 := by
+          rcases un 0 with ⟨j, jinJ, n₀, zeq⟩
+          use j, jinJ
+          have : g j n₀ ≤ g j 0 := by
+            rw [← zeq]
+            exact zero_le _
+          rw [StrictMono.le_iff_le (gSM j jinJ)] at this
+          have : n₀ = 0 := by
+            exact Nat.eq_zero_of_le_zero this
+          nth_rw 1 [← this]
+          exact zeq.symm
+        rcases this with ⟨j₀, j₀inJ, gj₀eqz⟩
+        have eqz : {i ∈ Finset.Iic 0 | g j₀ i ≤ 0} = {0} := by
+          ext k
+          constructor
+          · intro kin
+            simp only [Finset.mem_singleton]
+            simp only [nonpos_iff_eq_zero, Finset.mem_filter,
+              Finset.mem_Iic] at kin
+            exact kin.1
+          · intro kin
+            simp only [nonpos_iff_eq_zero, Finset.mem_filter,
+              Finset.mem_Iic]
+            simp only [Finset.mem_singleton] at kin
+            constructor
+            · assumption
+            · rw [kin]
+              assumption
+        have eqemp : ∑ j ∈ J \ {j₀}, ∑ i ∈
+          {i ∈ Finset.Iic 0 | g j i ≤ 0}, f ((g j) i) = 0 := by
+            apply Finset.sum_eq_zero
+            intro j jinJm
+            have : Finset.filter (fun i ↦ g j i ≤ 0) (Finset.Iic 0) = ∅ := by
+              rw [Finset.filter_eq_empty_iff]
+              intro k kin
+              simp only [Finset.mem_sdiff, Finset.mem_singleton,
+                ← ne_eq] at jinJm
+              simp only [Finset.mem_Iic, nonpos_iff_eq_zero] at kin
+              rw [kin]
+              simp only [nonpos_iff_eq_zero, ← ne_eq]
+              intro gjzeqz
+              have r1 : 0 ∈ Set.range (g j) := by
+                use 0
+              have r2 : 0 ∈ Set.range (g j₀) := by
+                use 0
+              have := disj j₀ j₀inJ j jinJm.1 jinJm.2
+              rw [disjoint_iff_forall_ne] at this
+              have := this r2 r1
+              contradiction
+            rw [this, Finset.sum_empty]
+        rw [Finset.union_deleted_mem J j₀ j₀inJ,
+            Finset.sum_union (Finset.sdiff_disjoint), eqemp, zero_add,
+            Finset.sum_singleton, eqz, Finset.sum_singleton, gj₀eqz,
+            Finset.sum_Iic_zero]
+      · rcases un (n + 1) with ⟨j₀, j₀inJ, n₀, gn₀eqnp1⟩
+        rw [eq_comm] at gn₀eqnp1
+        have eq1 : ∑ x ∈ J \ {j₀}, ∑ i ∈
+          {i ∈ Finset.Iic (n + 1) | g x i ≤ n + 1}, f (g x i) =
+          ∑ x ∈ J \ {j₀}, ∑ i ∈
+          {i ∈ Finset.Iic n | g x i ≤ n}, f (g x i) := by
+            apply Finset.sum_congr rfl
+            intro j jinJm
+            simp only [Finset.mem_sdiff, Finset.mem_singleton] at jinJm
+            apply Finset.sum_congr
+            · ext k
+              simp only [Finset.mem_filter, Finset.mem_Iic] at *
+              constructor
+              · intro kin
+                have : g j k ≠ n + 1 := by
+                  by_contra!
+                  have r1 : n + 1 ∈ Set.range (g j) := by
+                    use k
+                  have r2 : n + 1 ∈ Set.range (g j₀) := by
+                    use n₀
+                  have := disj j₀ j₀inJ j jinJm.1 jinJm.2
+                  rw [disjoint_iff_forall_ne] at this
+                  have := this r2 r1
+                  contradiction
+                constructor
+                · by_contra!
+                  have := Nat.le_antisymm kin.1 this
+                  have : n + 1 ≤ g j k := by
+                    rw [this]
+                    exact StrictMono.le_apply (gSM j jinJm.1)
+                  have := Nat.le_antisymm kin.2 this
+                  contradiction
+                · by_contra!
+                  have := Nat.le_antisymm kin.2 this
+                  contradiction
+              · intro kin
+                constructor
+                · exact Nat.le_trans kin.1 (Nat.le_add_right n 1)
+                · exact Nat.le_trans kin.2 (Nat.le_add_right n 1)
+            · intros
+              rfl
+        have eq2 : {i ∈ Finset.Iic (n + 1) | g j₀ i ≤ n + 1} =
+          {i ∈ Finset.Iic n | g j₀ i ≤ n} ∪ {n₀} := by
+            ext k
+            simp only [Finset.mem_filter, Finset.mem_Iic,
+              Finset.mem_union, Finset.mem_singleton]
+            constructor
+            · intro kin
+              by_cases h: g j₀ k = n + 1
+              · rw [← gn₀eqnp1] at h
+                right
+                exact StrictMono.injective (gSM j₀ j₀inJ) h
+              · have := Nat.le_of_lt_succ (Nat.lt_of_le_of_ne kin.2 h)
+                left
+                constructor
+                · by_contra! h'
+                  rw [← StrictMono.lt_iff_lt (gSM j₀ j₀inJ)] at h'
+                  have := lt_of_lt_of_le (lt_of_le_of_lt
+                    (StrictMono.le_apply (gSM j₀ j₀inJ)) h') this
+                  linarith
+                · assumption
+            · intro kin
+              rcases kin with h | h
+              · constructor
+                · exact Nat.le_trans h.1 (Nat.le_add_right n 1)
+                · exact Nat.le_trans h.2 (Nat.le_add_right n 1)
+              · rw [h]
+                constructor
+                · rw [← StrictMono.le_iff_le (gSM j₀ j₀inJ), gn₀eqnp1]
+                  exact StrictMono.le_apply (gSM j₀ j₀inJ)
+                · rw [gn₀eqnp1]
+        have eq3: Disjoint {i ∈ Finset.Iic n | g j₀ i ≤ n} {n₀} := by
+          rw [Finset.disjoint_iff_ne]
+          simp only [Finset.mem_filter, Finset.mem_Iic, Finset.mem_singleton,
+                     ne_eq, forall_eq, and_imp]
+          intro k klen gjklen
+          by_contra!
+          rw [this, gn₀eqnp1] at gjklen
+          linarith
+        rw [Finset.sum_Iic_succ_top, Finset.union_deleted_mem J j₀ j₀inJ,
+            Finset.sum_union (Finset.sdiff_disjoint), Finset.sum_singleton,
+            eq2, Finset.sum_union eq3, Finset.sum_singleton, gn₀eqnp1,
+            ← Finset.sum_singleton
+            (fun x ↦ ∑ i ∈ {i ∈ Finset.Iic n | g x i ≤ n},
+            f (g x i)) j₀, eq1, ← add_assoc,
+            ← Finset.sum_union (Finset.sdiff_disjoint),
+            ← Finset.union_deleted_mem J j₀ j₀inJ, ih]
 
 /- ### Sums with zeros ### -/
 
@@ -207,7 +369,8 @@ theorem sum_of_comp_eq (n m: ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘
 
 /- `sum_eq_sum_with_no_extra_zeros` -/
 
--- We include a lemma about Nat.sSup that is not in mathlib for natural numbers:
+-- We include a couple of lemmas about Nat.sSup that is not in
+-- mathlib for natural numbers:
 lemma Nat.le_sSup {s: Set ℕ} (sbdd: BddAbove s) {k: ℕ} :
   k ∈ s → k ≤ sSup s := by
     classical
@@ -216,6 +379,12 @@ lemma Nat.le_sSup {s: Set ℕ} (sbdd: BddAbove s) {k: ℕ} :
     rw [mem_upperBounds] at this
     rw [sSup_def sbdd]
     exact this k kins
+
+lemma Nat.sSup_le {s: Set ℕ} (snemp : s.Nonempty) (sbdd: BddAbove s) {n: ℕ} :
+  (∀ k ∈ s, k ≤ n) → sSup s ≤ n := by
+    classical
+    intro h
+    exact h (sSup s) (Nat.sSup_mem snemp sbdd)
 
 lemma nezero_ge_nonempty (n: ℕ) (fnez: ∃ k ≥ n, f k ≠ 0) :
   {k | n ≤ k ∧ f k ≠ 0}.Nonempty := by
