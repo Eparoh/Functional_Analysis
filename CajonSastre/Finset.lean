@@ -105,6 +105,12 @@ lemma Finset.sum_Iic_telescopic {f : ℕ → M} {N : ℕ}:
 lemma Finset.Icc_eq_Iic (n: ℕ) : Finset.Iic n = Finset.Icc 0 n := by
   rfl
 
+lemma Finset.sum_Iic_succ_top {f: ℕ → M} (n: ℕ) :
+  ∑ i ∈ Finset.Iic (n + 1), f i =
+  ∑ i ∈ Finset.Iic n, f i + f (n + 1) := by
+    simp only [Finset.Icc_eq_Iic,
+    Finset.sum_Icc_succ_top (Nat.zero_le (n + 1))]
+
 /- ### Sums with zeros ### -/
 
 variable {f f': ℕ → M} {g: ℕ → ℕ}

@@ -504,20 +504,123 @@ theorem limserie_extra_zeros_iff_limserie {Y: Type*} [NormedAddCommGroup Y]
 
 /- ### Decomposition of serie into subseries ### -/
 
+lemma Nat.sSup_le {s: Set ℕ} (sbdd: BddAbove s) {n: ℕ} :
+  (∀ k ∈ s, k ≤ n) → sSup s ≤ n := by
+    sorry
+
+lemma bbb {α β γ ι: Type*} [AddCommMonoid β]
+  (f: α → β) (g: ι → γ → α) (J: Finset ι) (A: Finset α)
+  (H: ι → Finset γ) (ginj: ∀ j ∈ J, Injective (g j))
+  (disj: ∀ j ∈ J, ∀ i ∈ J, i ≠ j →
+   Disjoint (range (g j)) (range (g i)))
+  (un: ∀ a ∈ A, ∃ j ∈ J, ∃ b ∈ H j, f a = f ((g j) b)) :
+      ∑ a ∈ A, f a =
+      ∑ j ∈ J, ∑ i ∈ (H j), f ((g j) i) := by
+        sorry
+
+lemma Finset.union_deleted_mem {ι: Type*} [DecidableEq ι] (J: Finset ι) :
+  ∀ j ∈ J, J = (J \ {j}) ∪ {j} := by
+    intro j jinJ
+    rw [eq_comm, Finset.sdiff_union_self_eq_union, eq_comm,
+        Finset.left_eq_union, Finset.singleton_subset_iff]
+    exact jinJ
+
 theorem aaa' {ι: Type*} (J: Finset ι) [h: Nonempty J] (f: ℕ → Y)
   (g: ι → ℕ → ℕ) (gSM: ∀ j ∈ J, StrictMono (g j))
   (disj: ∀ j ∈ J, ∀ i ∈ J, i ≠ j →
-   Disjoint (Finset.image (g j)) (Finset.image (g i)))
+   Disjoint (range (g j)) (range (g i)))
   (un: ∀ (m: ℕ), ∃ j ∈ J, ∃ (n: ℕ), m = (g j) n)
-  (n: ℕ) (len: ∀ j ∈ J, (g j) 0 ≤ n) :
+  (n: ℕ) :
     ∑ i ∈ Finset.Iic n, f i =
-    ∑ j ∈ J, (∑ i ∈ Finset.Iic (sSup ((g j) ⁻¹' (Iic n))) , f ((g j) i)) := by
-      sorry
+    ∑ j ∈ J, (∑ i ∈ {i ∈ Finset.Iic n | g j i ≤ n}, f ((g j) i)) := by
+      classical
+      have : ∀ j ∈ J, ∀ (m : ℕ), BddAbove (g j ⁻¹' Iic m) := by
+        intro j jinJ m
+        apply Set.Finite.bddAbove
+        apply Finite.preimage
+        · intro _ _ _ _ eq
+          exact (StrictMono.injective (gSM j jinJ)) eq
+        · exact finite_Iic m
+      induction' n with n ih
+      · have : ∃ j ∈ J, g j 0 = 0 := by
+          rcases un 0 with ⟨j, jinJ, n₀, zeq⟩
+          use j, jinJ
+          have : g j n₀ ≤ g j 0 := by
+            rw [← zeq]
+            exact zero_le _
+          rw [StrictMono.le_iff_le (gSM j jinJ)] at this
+          have : n₀ = 0 := by
+            exact Nat.eq_zero_of_le_zero this
+          nth_rw 1 [← this]
+          exact zeq.symm
+        rcases this with ⟨j₀, j₀inJ, gj₀eqz⟩
+        have eqz : {i ∈ Finset.Iic 0 | g j₀ i ≤ 0} = {0} := by
+          ext k
+          constructor
+          · intro kin
+            simp only [Finset.mem_singleton]
+            simp only [nonpos_iff_eq_zero, Finset.mem_filter,
+              Finset.mem_Iic] at kin
+            exact kin.1
+          · intro kin
+            simp only [nonpos_iff_eq_zero, Finset.mem_filter,
+              Finset.mem_Iic]
+            simp only [Finset.mem_singleton] at kin
+            constructor
+            · assumption
+            · rw [kin]
+              assumption
+        have eqemp : ∑ j ∈ J \ {j₀}, ∑ i ∈
+          {i ∈ Finset.Iic 0 | g j i ≤ 0}, f ((g j) i) = 0 := by
+            apply Finset.sum_eq_zero
+            intro j jinJm
+            have : Finset.filter (fun i ↦ g j i ≤ 0) (Finset.Iic 0) = ∅ := by
+              rw [Finset.filter_eq_empty_iff]
+              intro k kin
+              simp only [Finset.mem_sdiff, Finset.mem_singleton,
+                ← ne_eq] at jinJm
+              simp only [Finset.mem_Iic, nonpos_iff_eq_zero] at kin
+              rw [kin]
+              simp only [nonpos_iff_eq_zero, ← ne_eq]
+              intro gjzeqz
+              have r1 : 0 ∈ range (g j) := by
+                use 0
+              have r2 : 0 ∈ range (g j₀) := by
+                use 0
+              have := disj j₀ j₀inJ j jinJm.1 jinJm.2
+              rw [disjoint_iff_forall_ne] at this
+              have := this r2 r1
+              contradiction
+            rw [this, Finset.sum_empty]
+        rw [Finset.union_deleted_mem J j₀ j₀inJ,
+            Finset.sum_union (Finset.sdiff_disjoint), eqemp, zero_add,
+            Finset.sum_singleton, eqz, Finset.sum_singleton, gj₀eqz,
+            Finset.sum_Iic_zero]
+      · rcases un (n + 1) with ⟨j₀, j₀inJ, n₀, gn₀eqnp1⟩
+        rw [eq_comm] at gn₀eqnp1
+        have eq1 : ∑ x ∈ J \ {j₀}, ∑ i ∈
+          {i ∈ Finset.Iic (n + 1) | g x i ≤ n + 1}, f (g x i) =
+          ∑ x ∈ J \ {j₀}, ∑ i ∈
+          {i ∈ Finset.Iic n | g x i ≤ n}, f (g x i) := by
+            sorry
+        have eq2 : {i ∈ Finset.Iic (n + 1) | g j₀ i ≤ n + 1} =
+          {i ∈ Finset.Iic n | g j₀ i ≤ n} ∪ {n₀} := by
+            sorry
+        have eq3: Disjoint {i ∈ Finset.Iic n | g j₀ i ≤ n} {n₀} := by
+          sorry
+        rw [Finset.sum_Iic_succ_top, Finset.union_deleted_mem J j₀ j₀inJ,
+            Finset.sum_union (Finset.sdiff_disjoint), Finset.sum_singleton,
+            eq2, Finset.sum_union eq3, Finset.sum_singleton, gn₀eqnp1,
+            ← Finset.sum_singleton
+            (fun x ↦ ∑ i ∈ {i ∈ Finset.Iic n | g x i ≤ n},
+            f (g x i)) j₀, eq1, ← add_assoc,
+            ← Finset.sum_union (Finset.sdiff_disjoint),
+            ← Finset.union_deleted_mem J j₀ j₀inJ, ih]
 
 theorem aaa {ι: Type*} (J: Finset ι) [h: Nonempty J] (f: ℕ → Y)
   (g: ι → ℕ → ℕ) (s: ι → Y) (gSM: ∀ j ∈ J, StrictMono (g j))
   (disj: ∀ j ∈ J, ∀ i ∈ J, i ≠ j →
-   Disjoint (Finset.image (g j)) (Finset.image (g i)))
+   Disjoint (range (g j)) (range (g i)))
   (un: ∀ (m: ℕ), ∃ j ∈ J, ∃ (n: ℕ), m = (g j) n) :
    (∀ j ∈ J, lim_serie (f ∘ (g j)) (s j)) → lim_serie f (∑ j ∈ J, (s j)) := by
     classical
@@ -539,32 +642,96 @@ theorem aaa {ι: Type*} (J: Finset ι) [h: Nonempty J] (f: ℕ → Y)
       (Finset.Nonempty.image (Finset.nonempty_coe_sort.mp h)
         (fun i: ι ↦ g i (N i)))
     intro n len
-    have : ∀ j ∈ J, (g j) 0 ≤ n := by
-      sorry
-    rw [aaa' J f g gSM disj un n this, ← Finset.sum_sub_distrib]
+    have : sSup ((fun (i: ι) ↦ g i 0) '' J) ≤ n := by
+      apply Nat.sSup_le
+      · apply Set.Finite.bddAbove
+        exact toFinite ((fun i ↦ g i 0) '' ↑J)
+      · intro k kin
+        rcases kin with ⟨j, jinJ, eqk⟩
+        dsimp at eqk
+        rw [← eqk]
+        apply Nat.le_trans _ len
+        have : g j 0 ≤ g j (N j) := by
+          rw [StrictMono.le_iff_le (gSM j jinJ)]
+          exact Nat.zero_le (N j)
+        apply le_trans this
+        apply Finset.le_max'
+        rw [Finset.mem_image]
+        use j, jinJ
+    rw [aaa' J f g gSM disj un n, ← Finset.sum_sub_distrib]
     calc
-      ‖∑ x ∈ J, (∑ i ∈ Finset.Iic (sSup (g x ⁻¹' Iic n)),
-         f (g x i) - s x)‖ ≤ ∑ x ∈ J, ‖∑ i ∈ Finset.Iic
-          (sSup (g x ⁻¹' Iic n)), f (g x i) - s x‖ := by
-            exact norm_sum_le J
-              fun i ↦ ∑ i_1 ∈ Finset.Iic (sSup (g i ⁻¹' Iic n)),
-                f (g i i_1) - s i
+      ‖∑ x ∈ J, (∑ i ∈ {i ∈ Finset.Iic n | g x i ≤ n},
+      f (g x i) - s x)‖ ≤ ∑ x ∈ J,
+      ‖∑ i ∈ {i ∈ Finset.Iic n | g x i ≤ n}, f (g x i) - s x‖ := by
+        exact norm_sum_le J _
       _ < ∑ x ∈ J, (ε / J.card) := by
         apply Finset.sum_lt_sum_of_nonempty
           (Finset.nonempty_coe_sort.mp h)
         intro j jinJ
-        have Njle : N j ≤ sSup (g j ⁻¹' Iic n) := by
+        have : {i ∈ Finset.Iic n | g j i ≤ n} =
+          Finset.Iic (sSup {i ∈ Finset.Iic n | g j i ≤ n}) := by
+            ext k
+            simp only [Finset.mem_filter, Finset.mem_Iic]
+            constructor
+            · intro kin
+              apply Nat.le_sSup
+              · use n
+                rw [mem_upperBounds]
+                intro m min
+                exact min.1
+              · assumption
+            · intro kin
+              constructor
+              · apply Nat.le_trans kin
+                apply Nat.sSup_le
+                · use n
+                  rw [mem_upperBounds]
+                  intro m min
+                  exact min.1
+                · intro m min
+                  exact min.1
+              · by_cases keqz : k = 0
+                · rw [keqz]
+                  apply Nat.le_trans _ this
+                  apply Nat.le_sSup
+                  · apply Set.Finite.bddAbove
+                    exact toFinite ((fun i ↦ g i 0) '' ↑J)
+                  · use j, jinJ
+                · by_contra! h
+                  have : sSup {i | i ≤ n ∧ g j i ≤ n} ≤ k - 1 := by
+                    apply Nat.sSup_le
+                    · use n
+                      rw [mem_upperBounds]
+                      intro m min
+                      exact min.1
+                    · intro m min
+                      have := lt_of_le_of_lt min.2 h
+                      rw [StrictMono.lt_iff_lt (gSM j jinJ)] at this
+                      rw [← Nat.lt_iff_le_pred (Nat.zero_lt_of_ne_zero keqz)]
+                      assumption
+                  have := Nat.le_trans kin this
+                  rw [← Nat.lt_iff_le_pred (Nat.zero_lt_of_ne_zero keqz)] at this
+                  linarith
+        simp only [this, ← @comp_apply _ _ _ f (g j)]
+        have : N j ≤ sSup {i ∈ Finset.Iic n | g j i ≤ n} := by
           apply Nat.le_sSup
-          · sorry
-          · rw [mem_preimage, mem_Iic]
-            apply Nat.le_trans _ len
-            apply Finset.le_max'
-            rw [Finset.mem_image]
-            use j
-        simp only [N] at Njle
-        rw [dif_pos (cond j jinJ (ε/J.card) εJpos)] at Njle
-        exact Classical.choose_spec (cond j jinJ (ε/J.card) εJpos)
-          (sSup (g j ⁻¹' Iic n)) Njle
+          · use n
+            simp only [mem_upperBounds, Finset.mem_Iic]
+            intro m min
+            exact min.1
+          · have : (g j) (N j) ≤ n := by
+              apply Nat.le_trans _ len
+              apply Finset.le_max'
+              rw [Finset.mem_image]
+              use j
+            constructor
+            · rw [Finset.mem_Iic, ← StrictMono.le_iff_le (gSM j jinJ)]
+              exact Nat.le_trans this (StrictMono.le_apply (gSM j jinJ))
+            · assumption
+        dsimp only [N] at this
+        rw [dif_pos (n_j j jinJ)] at this
+        exact Classical.choose_spec (n_j j jinJ)
+          (sSup {i ∈ Finset.Iic n | g j i ≤ n}) this
       _ = ε := by
         rw [Finset.sum_const, nsmul_eq_mul, mul_div_cancel₀]
         simp only [Nat.cast_ne_zero, Finset.card_ne_zero]
