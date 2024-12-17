@@ -1560,13 +1560,38 @@ theorem SSerie_iff_RSerie [CompleteSpace Y] (f: ℕ → Y) :
     rw [SSerie_iff_SCauchy, RSerie_iff_RCauchy]
     exact SCauchy_iff_RCauchy f
 
+lemma Nat.sub_sub_cancel :
+  ∀ {n m k: ℕ}, k ≤ n → k ≤ m → n - k = m - k → n = m := by
+    intro n m k klen klem eq
+    have := congr_arg (fun x ↦ x + k) eq
+    dsimp at this
+    rwa [Nat.sub_add_cancel klen, Nat.sub_add_cancel klem] at this
+
+lemma Finset.sdiff_nempty_of_ssub {α: Type*} [DecidableEq α] {s t: Finset α} :
+  s ⊂ t → t \ s ≠ ∅ := by
+    intro ssubt eqemp
+    simp only [sdiff_eq_empty_iff_subset] at eqemp
+    have := ssubset_of_ssubset_of_subset ssubt eqemp
+    have := not_ssubset_of_subset (subset_refl s)
+    contradiction
+
+lemma Nat.le_sInf {s : Set ℕ} (snemp: s.Nonempty) {k : ℕ} :
+(∀ n ∈ s, k ≤ n) → k ≤ sInf s := by
+  classical
+  intro h
+  rw [Nat.sInf_def snemp, Nat.le_find_iff]
+  intro m mltk
+  by_contra!
+  have := h m this
+  linarith
+
 lemma aaa (C F : ℕ → Finset ℕ)
 (un: ∀ (m: ℕ), ∃ (n: ℕ), m ∈ F n)
 (st1: ∀ (n: ℕ), F n ⊂ C n)
 (st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
 (nemp: F 0 ≠ ∅) :
-  ∃ (g: ℕ → ℕ), Bijective g ∧ ∀ (n: ℕ),
-  Finset.image g (Finset.Ioc (F n).card (C n).card) = C n \ F n := by
+  ∃ (g: ℕ → ℕ), Bijective g ∧ ∃ (t: ℕ → ℕ), StrictMono t ∧  ∀ (n: ℕ),
+  Finset.image g (Finset.Ico (t (2 * n)) (t (2 * n + 1))) = C n \ F n := by
     classical
     have h : ∀ (F: Finset ℕ), ∃ (g: ℕ → ℕ), Set.BijOn g (Iio F.card) F := by
       intro F
@@ -1630,42 +1655,216 @@ lemma aaa (C F : ℕ → Finset ℕ)
         linarith
       rw [if_neg (by linarith), dif_neg neg, dif_pos this]
       rw [eqk]
-    let t : ℕ → ℕ := fun n ↦ ∑ i ∈ Finset.Iic n, (s n).card
+    have sneemp : ∀ (n: ℕ), s n ≠ ∅ := by
+      intro n
+      by_cases h: n = 0
+      · rw [h, sz]
+        assumption
+      · rcases Nat.exists_eq_succ_of_ne_zero h with ⟨m, neqmp1⟩
+        rw [neqmp1, Nat.succ_eq_add_one]
+        by_cases h: Odd m
+        · rcases h with ⟨k, neq⟩
+          rw [neq, add_assoc, one_add_one_eq_two]
+          nth_rw 2 [← mul_one 2]
+          rw [← Nat.mul_add, seven (k + 1) (Nat.le_add_left 1 k),
+              Nat.add_sub_cancel]
+          exact Finset.sdiff_nempty_of_ssub (st2 k)
+        · rw [Nat.not_odd_iff_even] at h
+          rcases h with ⟨k, neq⟩
+          rw [neq, ← Nat.two_mul k, sodd k]
+          exact Finset.sdiff_nempty_of_ssub (st1 k)
+    have sdis : ∀ (n m: ℕ), n ≠ m → Disjoint (s n) (s m) := by
+      sorry
+    let t : ℤ → ℕ := fun n ↦ if 0 ≤ n then
+      ∑ i ∈ Finset.Iic (Int.toNat n), (s (Int.toNat i)).card else 0
+    have tpos : ∀ (n: ℕ), t n = ∑ i ∈ Finset.Iic n, (s i).card := by
+      intro n
+      unfold t
+      rw [if_pos (Nat.cast_nonneg n)]
+      simp only [Int.toNat_ofNat]
+    have tneg : ∀ n < 0, t n = 0 := by
+      intro n nltz
+      unfold t
+      rw [if_neg]
+      simp only [not_le]
+      assumption
     let p : ℕ → ℕ := fun n ↦ sInf {k: ℕ | n < t k}
+    have nlttn : ∀ (n: ℕ), n < t n := by
+      simp only [tpos]
+      intro n
+      induction' n with n ih
+      · rw [Finset.sum_Iic_zero, sz, Finset.card_pos,
+            Finset.nonempty_iff_ne_empty]
+        assumption
+      · rw [Finset.sum_Iic_succ_top]
+        apply Nat.add_lt_add_of_lt_of_le ih
+        rw [Finset.one_le_card, Finset.nonempty_iff_ne_empty]
+        exact sneemp (n + 1)
     have pdef : ∀ (n: ℕ), n < t (p n) := by
       intro n
       unfold p
-      have nemp : {k | n < t k}.Nonempty := by
-        sorry
+      have nemp : {k: ℕ | n < t k}.Nonempty := by
+        use n
+        simp only [mem_setOf_eq]
+        exact nlttn n
       have := Nat.sInf_mem nemp
       exact this
-    let g : ℕ → ℕ := fun n ↦ if p n = 0 then
-      r (s (p n)) n else r (s (p n)) (n - t ((p n) - 1))
+    have lep : ∀ (n: ℕ), t ((p n) - 1) ≤ n := by
+      intro n
+      by_cases pnz: p n = 0
+      · rw [pnz]
+        simp only [Nat.cast_zero, zero_sub,
+                   tneg (-1) (neg_one_lt_zero), zero_le]
+      · have : (@Nat.cast ℤ _ (p n)) - 1 = Nat.cast ((p n) - 1) := by
+          rw [Int.natCast_pred_of_pos (Nat.zero_lt_of_ne_zero pnz)]
+        rw [this]
+        unfold p
+        have := Nat.not_mem_of_lt_sInf (Nat.sub_one_lt pnz)
+        simp only [mem_setOf_eq, not_lt] at this
+        assumption
+    have prn : ∀ (n: ℕ), (n - t ((p n) - 1)) ∈ Iio (s (p n)).card := by
+      intro n
+      rw [mem_Iio]
+      by_cases h: p n = 0
+      · rw [h, Nat.cast_zero, zero_sub, sz,
+                   tneg (-1) (neg_one_lt_zero), Nat.sub_zero]
+        have := pdef n
+        rw [h, tpos 0, Finset.sum_Iic_zero, sz] at this
+        assumption
+      · apply Nat.sub_lt_left_of_lt_add (lep n)
+        have : (@Nat.cast ℤ _ (p n)) - 1 = Nat.cast ((p n) - 1) := by
+          rw [Int.natCast_pred_of_pos (Nat.zero_lt_of_ne_zero h)]
+        have pmone : p n = (p n - 1) + 1 := by
+          exact (Nat.succ_pred_eq_of_ne_zero h).symm
+        rw [this, tpos]
+        nth_rw 2 [pmone]
+        rw [← Finset.sum_Iic_succ_top (p n - 1), ← pmone, ← tpos]
+        exact pdef n
+    let g : ℕ → ℕ := fun n ↦ r (s (p n)) (n - t ((p n) - 1))
+    have eqg : ∀ (n m: ℕ), (g n = g m → p n = p m) := by
+      intro n m gneqgm
+      unfold g at gneqgm
+      have inspn := (rdef (s (p n))).1 (prn n)
+      have inspm := (rdef (s (p m))).1 (prn m)
+      rw [gneqgm] at inspn
+      have : ¬ Disjoint (s (p n)) (s (p m)) := by
+        rw [Finset.not_disjoint_iff]
+        use r (s (p m)) (m - t ((p m) - 1))
+        exact And.intro inspn inspm
+      have := (Decidable.not_imp_not).mpr (sdis (p n) (p m)) this
+      simp only [ne_eq, Decidable.not_not] at this
+      assumption
+    have gon : ∀ (n: ℕ), g n ∈ s (p n) := by
+      intro n
+      unfold g
+      by_cases h: p n = 0
+      · have := prn n
+        rw [h] at *
+        simp only [Nat.cast_zero, zero_sub,
+                   tneg (-1) (neg_one_lt_zero), Nat.sub_zero] at *
+        exact (rdef (s 0)).1 this
+      · have eq : (@Nat.cast ℤ _ (p n)) - 1 = Nat.cast ((p n) - 1) := by
+          rw [Int.natCast_pred_of_pos (Nat.zero_lt_of_ne_zero h)]
+        have := prn n
+        rw [eq] at *
+        exact (rdef (s (p n))).1 this
     use g
+    have gsurj : Surjective g := by
+      sorry
     constructor
     · constructor
       · intro n m gneqgm
-        by_cases pnz: p n = 0
-        · by_cases pmz: p m = 0
-          · unfold g at gneqgm
-            rw [if_pos pnz, if_pos pmz, pnz, pmz, sz] at gneqgm
-            have nlt : n ∈ Iio (F 0).card:= by
-              rw [mem_Iio]
-              have := pdef n
-              unfold t at this
-              rwa [pnz, sz, Finset.sum_const, Nat.card_Iic, zero_add,
-                         smul_eq_mul, one_mul] at this
-            have mlt : m ∈ Iio (F 0).card := by
-              rw [mem_Iio]
-              have := pdef m
-              unfold t at this
-              rwa [pmz, sz, Finset.sum_const, Nat.card_Iic, zero_add,
-                         smul_eq_mul, one_mul] at this
-            exact (rdef (F 0)).2.1 nlt mlt gneqgm
-          · sorry
-        · sorry
-      · sorry
-    · sorry
+        have := eqg n m gneqgm
+        unfold g at gneqgm
+        rw [this] at gneqgm
+        have nin := prn n
+        have min := prn m
+        rw [this] at nin
+        have sol := (rdef (s (p m))).2.1 nin min gneqgm
+        apply Nat.sub_sub_cancel _ (lep m) sol
+        rw [← this]
+        exact lep n
+      · exact gsurj
+    · let T := fun (n: ℕ) ↦ t n
+      have SMT : StrictMono T := by
+        have : ∀ (n: ℕ), T n < T (n + 1) := by
+          intro n
+          simp only [T, tpos]
+          rw [Finset.sum_Iic_succ_top]
+          apply Nat.lt_add_of_pos_right
+          rw [Finset.card_pos, Finset.nonempty_iff_ne_empty]
+          exact sneemp (n + 1)
+        exact strictMono_nat_of_lt_succ this
+      have sT : ∀ (n m: ℕ), m ∈ Finset.Ico (T (2 * n)) (T (2* n + 1)) ↔
+        s (p m) = C n \ F n := by
+          intro n m
+          rw [Finset.mem_Ico]
+          constructor
+          · intro min
+            dsimp only [T] at min
+            have : p m = 2 * n + 1 := by
+              unfold p
+              apply le_antisymm
+              · apply Nat.sInf_le
+                rw [mem_setOf_eq]
+                exact min.2
+              · apply Nat.le_sInf
+                · use m
+                  simp only [mem_setOf_eq]
+                  exact nlttn m
+                · intro k kin
+                  rw [← StrictMono.le_iff_le SMT]
+                  dsimp only [T]
+                  by_contra! klt
+                  have ltk := lt_of_le_of_lt min.1 kin
+                  rw [StrictMono.lt_iff_lt SMT] at *
+                  linarith
+            rw [← sodd n, this]
+          · intro eq
+            rw [← sodd n] at eq
+            have : ¬Disjoint (s (p m)) (s (2 * n + 1)) := by
+              rw [eq, Finset.disjoint_self_iff_empty]
+              exact sneemp _
+            have := (Decidable.not_imp_not).mpr
+              (sdis (p m) (2 * n + 1)) this
+            simp only [ne_eq, Decidable.not_not] at this
+            rw [← this, (Nat.sub_eq_of_eq_add this).symm]
+            unfold T
+            constructor
+            · by_cases h: p m = 0
+              · rw [h] at this
+                linarith
+              · have : Nat.cast (p m - 1) = (@Nat.cast ℤ _ (p m)) - 1 := by
+                   rw [Int.natCast_pred_of_pos (Nat.zero_lt_of_ne_zero h)]
+                rw [this]
+                exact lep m
+            · exact pdef m
+      use T
+      constructor
+      · exact SMT
+      · intro n
+        ext k
+        rw [Finset.mem_image]
+        constructor
+        · intro kin
+          rcases kin with ⟨m, min, gmeqk⟩
+          rw [← (sT n m).mp min, ← gmeqk]
+          exact gon m
+        · intro kin
+          rcases gsurj k with ⟨m, gmeqk⟩
+          use m
+          constructor
+          · rw [sT n m]
+            rw [← sodd n, ← gmeqk] at kin
+            have : ¬ Disjoint (s (p m)) (s (2 * n + 1)) := by
+              rw [Finset.not_disjoint_iff]
+              use g m
+              exact And.intro (gon m) kin
+            have := (Decidable.not_imp_not).mpr
+              (sdis (p m) (2 * n + 1)) this
+            simp only [ne_eq, Decidable.not_not] at this
+            rw [this, ← sodd n]
+          · assumption
 
 def bbb (c: Finset ℕ → Finset ℕ)
   (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop) : ℕ → ℕ
@@ -1673,16 +1872,6 @@ def bbb (c: Finset ℕ → Finset ℕ)
   | n + 1 => sInf {k: ℕ | p k ∧
     Finset.max' (c (Finset.Iic (bbb c cnemp p n)))
       (cnemp (Finset.Iic (bbb c cnemp p n))) < k}
-
-lemma Nat.le_sInf {s : Set ℕ} (snemp: s.Nonempty) {k : ℕ} :
-(∀ n ∈ s, k ≤ n) → k ≤ sInf s := by
-  classical
-  intro h
-  rw [Nat.sInf_def snemp, Nat.le_find_iff]
-  intro m mltk
-  by_contra!
-  have := h m this
-  linarith
 
 lemma bbc {s: Finset ℕ} (k: ℕ) :
   (∀ n ∈ s, n < k) → s ⊂ Finset.Iic k := by
@@ -1877,16 +2066,22 @@ theorem RSerie_iff_Summable {Y: Type*} [NormedAddCommGroup Y] (f: ℕ → Y) :
           use n + 1
           simp only [F, Finset.mem_Iic] at *
           exact lt_of_le_of_lt min (NSM (lt_add_one n))
-      rcases aaa C F un st1 st2 Fznemp with ⟨g, gbij, eq⟩
+      rcases aaa C F un st1 st2 Fznemp with ⟨g, gbij, t, SMt, eq⟩
       have := Rsf g gbij
       have := CauchySerie_of_conv_serie (f ∘ g) this
       rw [cauchyserie_iff_vanishing_norm] at this
       rcases this (ε₀/2) (by norm_num [ε₀pos]) with ⟨n₀, eq1⟩
-      have : ∃ (k: ℕ), n₀ ≤ N k := by
-        use n₀
-        exact StrictMono.le_apply NSM
-      rcases this with ⟨k, n₀leNk⟩
-      have cont1 : ε₀/2 < ‖∑ i ∈ Finset.Ioc ((N k) + 1) (C k).card, (f ∘ g) i‖ := by
+      have : ∃ (k: ℕ), n₀ + 1 ≤ t (2 * k) - 1 := by
+        use n₀ + 1
+        have : 2 * n₀ + 1 ≤ t (2 * (n₀ + 1)) - 1 := by
+          apply Nat.le_sub_of_add_le
+          rw [add_assoc, one_add_one_eq_two, Nat.mul_add, mul_one]
+          exact StrictMono.le_apply SMt
+        apply Nat.le_trans _ this
+        linarith
+      rcases this with ⟨k, n₀letk⟩
+      have cont1 : ε₀/2 < ‖∑ i ∈ Finset.Ico
+        (t (2 * k)) (t (2 * k + 1)), (f ∘ g) i‖ := by
         calc
           ε₀/2 = ε₀ - ε₀/2 := by
             linarith
@@ -1904,12 +2099,18 @@ theorem RSerie_iff_Summable {Y: Type*} [NormedAddCommGroup Y] (f: ℕ → Y) :
             simp only [sub_sub_sub_cancel_right, F]
             apply congr_arg
             rw [← Finset.sum_sdiff_eq_sub (subset_of_ssubset (st1 k))]
-          _ = ‖∑ i ∈ Finset.Ioc ((N k) + 1) (C k).card, (f ∘ g) i‖ := by
+          _ = ‖∑ i ∈ Finset.Ico (t (2 * k)) (t (2 * k + 1)), (f ∘ g) i‖ := by
             rw [← eq k, Finset.sum_image (fun _ _ _ _ eq ↦
-                (gbij.1 eq)), Fcard]
+                (gbij.1 eq))]
             simp only [@comp_apply _ _ _ f g]
-      have := eq1 ((N k) + 1) (C k).card (Nat.le_trans n₀leNk
-        (Nat.le_add_right (N k) 1)) (Ccard k).1
+      have contr := eq1 (t (2 * k) - 1) (t (2 * k + 1) - 1)
+        (Nat.le_trans (Nat.le_add_right n₀ 1) n₀letk)
+        (Nat.sub_le_sub_right (StrictMono.monotone SMt
+        (Nat.le_add_right (2 * k) 1)) 1)
+      have := Nat.lt_of_lt_pred
+              (lt_of_lt_of_le (Nat.zero_lt_succ n₀) n₀letk)
+      rw [Finset.Ioc_eq_Ico this (lt_of_lt_of_le this
+          (StrictMono.monotone SMt (Nat.le_add_right (2 * k) 1)))] at contr
       linarith
     · intro sumf
       intro g bijg

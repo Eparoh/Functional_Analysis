@@ -50,6 +50,18 @@ lemma Finset.Icc_disjoint {m n p q: ℕ} (nltp: n < p):
     intro plex
     linarith
 
+lemma Finset.Ioc_eq_Ico {n m: ℕ} (ngtz: 0 < n) (mgtz: 0 < m) :
+  Finset.Ioc (n - 1) (m - 1) = Finset.Ico n m := by
+    ext k
+    rw [Finset.mem_Ioc, Finset.mem_Ico]
+    constructor
+    · intro h
+      exact And.intro (Nat.le_of_pred_lt h.1)
+        (Nat.lt_of_le_pred mgtz h.2)
+    · intro h
+      exact And.intro (Nat.sub_one_lt_of_le ngtz h.1)
+        ((Nat.le_sub_one_iff_lt mgtz).mpr h.2)
+
 /- ### Results about finite sums ### -/
 
 lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {f : ℕ → M} {n m : ℕ} (h : n ≤ m) :
