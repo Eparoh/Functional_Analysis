@@ -1563,10 +1563,109 @@ theorem SSerie_iff_RSerie [CompleteSpace Y] (f: ℕ → Y) :
 lemma aaa (C F : ℕ → Finset ℕ)
 (un: ∀ (m: ℕ), ∃ (n: ℕ), m ∈ F n)
 (st1: ∀ (n: ℕ), F n ⊂ C n)
-(st2: ∀ (n: ℕ), C n ⊂ F (n + 1)) :
+(st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
+(nemp: F 0 ≠ ∅) :
   ∃ (g: ℕ → ℕ), Bijective g ∧ ∀ (n: ℕ),
   Finset.image g (Finset.Ioc (F n).card (C n).card) = C n \ F n := by
-    sorry
+    classical
+    have h : ∀ (F: Finset ℕ), ∃ (g: ℕ → ℕ), Set.BijOn g (Iio F.card) F := by
+      intro F
+      have equiv := Fintype.equivFin F
+      rw [Fintype.card_coe] at equiv
+      let g : ℕ → ℕ := fun n ↦ if h: n < F.card then (equiv.invFun ⟨n, h⟩).1 else 0
+      use g
+      constructor
+      · intro n nin
+        rw [mem_Iio] at nin
+        unfold g
+        rw [dif_pos nin]
+        simp only [Equiv.invFun_as_coe, Subtype.coe_prop]
+      · constructor
+        · intro n nin m min gneqgm
+          rw [mem_Iio] at *
+          unfold g  at gneqgm
+          rw [dif_pos nin, dif_pos min] at gneqgm
+          simp only [Equiv.invFun_as_coe] at gneqgm
+          exact Fin.mk.inj_iff.mp
+            (Equiv.injective equiv.symm (Subtype.eq gneqgm))
+        · intro n ninF
+          simp only [mem_image, mem_Iio]
+          rcases Equiv.surjective equiv.symm ⟨n, ninF⟩ with ⟨k, gkeq⟩
+          use k.1, k.2
+          unfold g
+          rw [dif_pos k.2]
+          simp only [Fin.eta, Equiv.invFun_as_coe, gkeq]
+    rcases Classical.axiom_of_choice h with ⟨r, rdef⟩
+    let s : ℕ → Finset ℕ := fun n ↦ if n = 0 then F 0 else
+      (if h: ∃ k ≥ 1, n = 2 * k then
+      (F (Classical.choose h)) \ (C ((Classical.choose h) - 1)) else
+      (if h: ∃ (k: ℕ), n = 2 * k + 1 then
+      (C (Classical.choose h)) \ (F (Classical.choose h)) else ∅))
+    have sz : s 0 = F 0 := by
+      unfold s
+      rw [if_pos rfl]
+    have seven : ∀ k ≥ 1, s (2 * k) = F k \ C (k - 1) := by
+      intro k kge
+      unfold s
+      have : ∃ m ≥ 1, 2 * k = 2 * m := by
+        use k
+      have eqk : Classical.choose this = k := by
+        have : 2 * (Classical.choose this) = 2 * k := by
+          exact (Classical.choose_spec this).2.symm
+        linarith
+      rw [if_neg (by linarith), dif_pos this]
+      rw [eqk]
+    have sodd : ∀ (k: ℕ), s (2 * k + 1) = C k \ F k := by
+      intro k
+      unfold s
+      have : ∃ (m: ℕ), 2 * k + 1 = 2 * m + 1:= by
+        use k
+      have neg : ¬ ∃ m ≥ 1, 2 * k + 1 = 2 * m := by
+        push_neg
+        intro m mge
+        exact Ne.symm Nat.two_mul_ne_two_mul_add_one
+      have eqk : Classical.choose this = k := by
+        have : 2 * (Classical.choose this) + 1 = 2 * k + 1 := by
+          exact (Classical.choose_spec this).symm
+        linarith
+      rw [if_neg (by linarith), dif_neg neg, dif_pos this]
+      rw [eqk]
+    let t : ℕ → ℕ := fun n ↦ ∑ i ∈ Finset.Iic n, (s n).card
+    let p : ℕ → ℕ := fun n ↦ sInf {k: ℕ | n < t k}
+    have pdef : ∀ (n: ℕ), n < t (p n) := by
+      intro n
+      unfold p
+      have nemp : {k | n < t k}.Nonempty := by
+        sorry
+      have := Nat.sInf_mem nemp
+      exact this
+    let g : ℕ → ℕ := fun n ↦ if p n = 0 then
+      r (s (p n)) n else r (s (p n)) (n - t ((p n) - 1))
+    use g
+    constructor
+    · constructor
+      · intro n m gneqgm
+        by_cases pnz: p n = 0
+        · by_cases pmz: p m = 0
+          · unfold g at gneqgm
+            rw [if_pos pnz, if_pos pmz, pnz, pmz, sz] at gneqgm
+            have nlt : n ∈ Iio (F 0).card:= by
+              rw [mem_Iio]
+              have := pdef n
+              unfold t at this
+              rwa [pnz, sz, Finset.sum_const, Nat.card_Iic, zero_add,
+                         smul_eq_mul, one_mul] at this
+            have mlt : m ∈ Iio (F 0).card := by
+              rw [mem_Iio]
+              have := pdef m
+              unfold t at this
+              rwa [pmz, sz, Finset.sum_const, Nat.card_Iic, zero_add,
+                         smul_eq_mul, one_mul] at this
+            exact (rdef (F 0)).2.1 nlt mlt gneqgm
+          · sorry
+        · sorry
+      · sorry
+    · sorry
 
 def bbb (c: Finset ℕ → Finset ℕ)
   (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop) : ℕ → ℕ
@@ -1575,13 +1674,91 @@ def bbb (c: Finset ℕ → Finset ℕ)
     Finset.max' (c (Finset.Iic (bbb c cnemp p n)))
       (cnemp (Finset.Iic (bbb c cnemp p n))) < k}
 
-lemma bbb' (c: Finset ℕ → Finset ℕ)
-  (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop) :
-    ∀ (n: ℕ), c (Finset.Iic (bbb c cnemp p n)) ⊂
-      Finset.Iic (bbb c cnemp p (n + 1)) := by
-        sorry
+lemma Nat.le_sInf {s : Set ℕ} (snemp: s.Nonempty) {k : ℕ} :
+(∀ n ∈ s, k ≤ n) → k ≤ sInf s := by
+  classical
+  intro h
+  rw [Nat.sInf_def snemp, Nat.le_find_iff]
+  intro m mltk
+  by_contra!
+  have := h m this
+  linarith
 
-theorem RSerie_iff_Summable (f: ℕ → Y) :
+lemma bbc {s: Finset ℕ} (k: ℕ) :
+  (∀ n ∈ s, n < k) → s ⊂ Finset.Iic k := by
+    intro h
+    rw [Finset.ssubset_iff_of_subset]
+    · use k
+      constructor
+      · rw [Finset.mem_Iic]
+      · by_contra!
+        have := h k this
+        linarith
+    · intro m mins
+      rw [Finset.mem_Iic]
+      exact le_of_lt (h m mins)
+
+lemma bbb' (c: Finset ℕ → Finset ℕ)
+  (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop)
+  (pevnt: ∀ (n: ℕ), ∃ k > n, p k) :
+    ∀ (n: ℕ), c (Finset.Iic (bbb c cnemp p n)) ⊂
+    Finset.Iic (bbb c cnemp p (n + 1)) := by
+      intro n
+      apply bbc
+      intro k kin
+      unfold bbb
+      have : {k: ℕ | p k ∧
+        Finset.max' (c (Finset.Iic (bbb c cnemp p n)))
+        (cnemp (Finset.Iic (bbb c cnemp p n))) < k}.Nonempty := by
+          rcases pevnt (Finset.max' (c (Finset.Iic (bbb c cnemp p n)))
+            (cnemp (Finset.Iic (bbb c cnemp p n)))) with ⟨k, kgt, pk⟩
+          use k
+          simp only [Finset.max'_lt_iff, mem_setOf_eq]
+          constructor
+          · assumption
+          · intro m min
+            exact lt_of_le_of_lt (Finset.le_max'
+              (c ((Finset.Iic (bbb c cnemp p n)))) m min) kgt
+      apply Nat.le_sInf this
+      intro m min
+      simp only [Finset.max'_lt_iff, mem_setOf_eq] at min
+      exact min.2 k kin
+
+lemma bbb'' (c: Finset ℕ → Finset ℕ)
+  (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop)
+  (pevnt: ∀ (n: ℕ), ∃ k > n, p k) :
+    ∀ (n: ℕ), p (bbb c cnemp p n):= by
+      classical
+      intro n
+      by_cases h: n = 0
+      · rw [h]
+        unfold bbb
+        have : {k: ℕ | p k}.Nonempty := by
+          rcases pevnt 0 with ⟨k, kgt, pk⟩
+          use k
+          simpa only [mem_setOf_eq]
+        rw [Nat.sInf_def this]
+        exact Nat.find_spec this
+      · have : ∃ (m: ℕ), n = m + 1 := by
+          exact Nat.exists_eq_succ_of_ne_zero h
+        rcases this with ⟨m, neq⟩
+        have nempt : {k: ℕ | p k ∧
+          Finset.max' (c (Finset.Iic (bbb c cnemp p m)))
+          (cnemp (Finset.Iic (bbb c cnemp p m))) < k}.Nonempty := by
+            rcases pevnt (Finset.max' (c (Finset.Iic (bbb c cnemp p m)))
+              (cnemp (Finset.Iic (bbb c cnemp p m)))) with ⟨k, kgt, pk⟩
+            use k
+            simp only [Finset.max'_lt_iff, mem_setOf_eq]
+            constructor
+            · assumption
+            · intro a ain
+              exact lt_of_le_of_lt (Finset.le_max'
+                (c ((Finset.Iic (bbb c cnemp p m)))) a ain) kgt
+        rw [neq]
+        unfold bbb
+        exact (Nat.sInf_mem nempt).1
+
+theorem RSerie_iff_Summable {Y: Type*} [NormedAddCommGroup Y] (f: ℕ → Y) :
   RSerie f ↔ SummableNet f := by
     classical
     constructor
@@ -1595,6 +1772,18 @@ theorem RSerie_iff_Summable (f: ℕ → Y) :
       rw [hassumnet_eps] at this
       push_neg at this
       rcases this with ⟨ε₀, ε₀pos, eq⟩
+      rw [lim_serie_eps] at flimx
+      rcases flimx (ε₀/2) (by norm_num [ε₀pos]) with ⟨m₀, eq'⟩
+      have pevnt : ∀ (n : ℕ), ∃ k > n,
+        ‖∑ i ∈ Finset.Iic k, f i - x‖ < ε₀ / 2 := by
+        intro n
+        by_cases h: m₀ < n
+        · use n + 1, (lt_add_one n)
+          exact eq' (n + 1) (le_of_lt
+            (lt_of_lt_of_le h (Nat.le_add_right n 1)))
+        · simp only [not_lt] at h
+          use (m₀ + 1), (Nat.lt_add_one_iff.mpr h)
+          exact eq' (m₀ + 1) (Nat.le_add_right m₀ 1)
       have eq : ∀ (F: Finset ℕ), ∃ G, G.Nonempty ∧ F ⊂ G ∧
         ε₀ ≤ ‖∑ i ∈ G, f i - x‖ := by
           intro F
@@ -1640,22 +1829,27 @@ theorem RSerie_iff_Summable (f: ℕ → Y) :
                   exact Finset.not_mem_empty 0
               · assumption
       let c : Finset ℕ → Finset ℕ := fun F ↦
-        if h: ∃ G, G.Nonempty ∧ F ⊆ G ∧ ε₀ ≤ ‖∑ i ∈ G, f i - x‖
+        if h: ∃ G, G.Nonempty ∧ F ⊂ G ∧ ε₀ ≤ ‖∑ i ∈ G, f i - x‖
           then Classical.choose h else ∅
       have c_def : ∀ (F: Finset ℕ), (c F).Nonempty ∧ F ⊂ (c F) ∧
         ε₀ ≤ ‖∑ i ∈ (c F), f i - x‖ := by
-          sorry
+          intro F
+          unfold c
+          rw [dif_pos (eq F)]
+          exact Classical.choose_spec (eq F)
       let N := bbb c (fun F ↦ (c_def F).1)
         (fun k ↦ ‖∑ i ∈ Finset.Iic k, f i - x‖ < ε₀/2)
       let F : ℕ → Finset ℕ := fun k ↦ Finset.Iic (N k)
       let C : ℕ → Finset ℕ := fun k ↦ c (F k)
+      have Fznemp : F 0 ≠ ∅ := by
+        unfold F
+        exact Ne.symm (ne_of_beq_false rfl)
       have st1 : ∀ (n: ℕ), F n ⊂ C n := by
         intro n
         dsimp only [C]
         exact (c_def (F n)).2.1
       have st2 : ∀ (n: ℕ), C n ⊂ F (n + 1) := by
-        exact bbb' c (fun F ↦ (c_def F).1)
-          (fun k ↦ ‖∑ i ∈ Finset.Iic k, f i - x‖ < ε₀/2)
+        exact bbb' c (fun F ↦ (c_def F).1) _ pevnt
       have Fcard : ∀ (k: ℕ), (F k).card = N k + 1 := by
         intro k
         unfold F
@@ -1667,24 +1861,23 @@ theorem RSerie_iff_Summable (f: ℕ → Y) :
           exact Finset.card_le_card (st1 k).1
         · rw [← Fcard (k + 1)]
           exact Finset.card_lt_card (st2 k)
+      have NSM : StrictMono N := by
+        have : ∀ (k: ℕ), N k < N (k + 1) := by
+          intro k
+          rw [← @Nat.add_lt_add_iff_right 1 _ _, ← Fcard, ← Fcard]
+          exact Finset.card_lt_card (ssubset_trans (st1 k) (st2 k))
+        exact strictMono_nat_of_lt_succ this
       have un : ∀ (m: ℕ), ∃ (n: ℕ), m ∈ F n := by
         intro m
-        dsimp only [F]
         induction' m with m ih
         · use 0
           rw [Finset.mem_Iic]
           exact zero_le _
         · rcases ih with ⟨n, min⟩
           use n + 1
-          have : Finset.Iic (N n) ⊂ Finset.Iic (N (n + 1)) := by
-            sorry
-          sorry
-      have NSM : StrictMono N := by
-        have : ∀ (k: ℕ), N k < N (k + 1) := by
-          intro k
-          sorry
-        exact strictMono_nat_of_lt_succ this
-      rcases aaa C F un st1 st2 with ⟨g, gbij, eq⟩
+          simp only [F, Finset.mem_Iic] at *
+          exact lt_of_le_of_lt min (NSM (lt_add_one n))
+      rcases aaa C F un st1 st2 Fznemp with ⟨g, gbij, eq⟩
       have := Rsf g gbij
       have := CauchySerie_of_conv_serie (f ∘ g) this
       rw [cauchyserie_iff_vanishing_norm] at this
@@ -1693,9 +1886,30 @@ theorem RSerie_iff_Summable (f: ℕ → Y) :
         use n₀
         exact StrictMono.le_apply NSM
       rcases this with ⟨k, n₀leNk⟩
-      have cont1 : ε₀/2 < ‖∑ i ∈ Finset.Ioc (N k) (C k).card, (f ∘ g) i‖ := by
-        sorry
-      have :=eq1 (N k) (C k).card n₀leNk (le_of_lt (Ccard k).1)
+      have cont1 : ε₀/2 < ‖∑ i ∈ Finset.Ioc ((N k) + 1) (C k).card, (f ∘ g) i‖ := by
+        calc
+          ε₀/2 = ε₀ - ε₀/2 := by
+            linarith
+          _ ≤ ‖(∑ i ∈ C k, f i) - x‖ - ε₀/2 := by
+            apply tsub_le_tsub_right _ (ε₀ / 2)
+            unfold C
+            exact (c_def (F k)).2.2
+          _ < ‖(∑ i ∈ C k, f i) - x‖ - ‖(∑ i ∈ Finset.Iic (N k), f i) - x‖ := by
+            apply sub_lt_sub_left _ ‖∑ i ∈ C k, f i - x‖
+            exact bbb'' c (fun F ↦ (c_def F).1) _ pevnt k
+          _ ≤ ‖((∑ i ∈ C k, f i) - x) - ((∑ i ∈ Finset.Iic (N k), f i) - x)‖ := by
+            exact norm_sub_norm_le (∑ i ∈ C k, f i - x)
+              (∑ i ∈ Finset.Iic (N k), f i - x)
+          _ = ‖∑ i ∈ (C k) \ (F k), f i‖ := by
+            simp only [sub_sub_sub_cancel_right, F]
+            apply congr_arg
+            rw [← Finset.sum_sdiff_eq_sub (subset_of_ssubset (st1 k))]
+          _ = ‖∑ i ∈ Finset.Ioc ((N k) + 1) (C k).card, (f ∘ g) i‖ := by
+            rw [← eq k, Finset.sum_image (fun _ _ _ _ eq ↦
+                (gbij.1 eq)), Fcard]
+            simp only [@comp_apply _ _ _ f g]
+      have := eq1 ((N k) + 1) (C k).card (Nat.le_trans n₀leNk
+        (Nat.le_add_right (N k) 1)) (Ccard k).1
       linarith
     · intro sumf
       intro g bijg
@@ -1703,7 +1917,8 @@ theorem RSerie_iff_Summable (f: ℕ → Y) :
 
 /- Sum of unconditional convergent series -/
 
-theorem lim_of_comp_lim (f: ℕ → Y) (Rs: RSerie f) (x: Y) (g: ℕ → ℕ)
+theorem lim_of_comp_lim {Y: Type*} [NormedAddCommGroup Y]
+  (f: ℕ → Y) (Rs: RSerie f) (x: Y) (g: ℕ → ℕ)
   (gbij: Bijective g) :
     (lim_serie (f ∘ g) x ↔ lim_serie f x) := by
       rw [RSerie_iff_Summable] at Rs
@@ -1722,14 +1937,15 @@ theorem lim_of_comp_lim (f: ℕ → Y) (Rs: RSerie f) (x: Y) (g: ℕ → ℕ)
           exact net_unique_limit_of_T2' flimx flimy
         rwa [← this] at fglimy
 
-theorem unique_lim_RSerie (f: ℕ → Y) (Rs: RSerie f) (x: Y) :
-  (∃ (g: ℕ → ℕ), Bijective g ∧ lim_serie (f ∘ g) x) →
-  ∀ (g: ℕ → ℕ), Bijective g → lim_serie (f ∘ g) x := by
-    intro cond
-    rcases cond with ⟨g, bijg, fglimx⟩
-    have limfx := (lim_of_comp_lim f Rs x g bijg).mp fglimx
-    intro h bijh
-    exact (lim_of_comp_lim f Rs x h bijh).mpr limfx
+theorem unique_lim_RSerie {Y: Type*} [NormedAddCommGroup Y]
+  (f: ℕ → Y) (Rs: RSerie f) (x: Y) :
+    (∃ (g: ℕ → ℕ), Bijective g ∧ lim_serie (f ∘ g) x) →
+    ∀ (g: ℕ → ℕ), Bijective g → lim_serie (f ∘ g) x := by
+      intro cond
+      rcases cond with ⟨g, bijg, fglimx⟩
+      have limfx := (lim_of_comp_lim f Rs x g bijg).mp fglimx
+      intro h bijh
+      exact (lim_of_comp_lim f Rs x h bijh).mpr limfx
 
 theorem Rserie_iff_bij_Rserie {Y: Type*} [NormedAddCommGroup Y]
   (f: ℕ → Y) (g: ℕ → ℕ) (gbij: Bijective g) :
