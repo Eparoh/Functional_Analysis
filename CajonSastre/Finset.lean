@@ -97,6 +97,37 @@ lemma Finset.sub_Iic_of_lt {s: Finset ℕ} (k: ℕ) :
       rw [Finset.mem_Iic]
       exact le_of_lt (h m mins)
 
+/- ### Results about bijections with finite sets of ℕ -/
+
+lemma Finset.bij_with_card (α: Type*) [Inhabited α] :
+  ∀ (F: Finset α), ∃ (g: ℕ → α), Set.BijOn g (Set.Iio F.card) F := by
+    intro F
+    have equiv := Fintype.equivFin F
+    rw [Fintype.card_coe] at equiv
+    let g : ℕ → α := fun n ↦ if h: n < F.card then (equiv.invFun ⟨n, h⟩).1 else default
+    use g
+    constructor
+    · intro n nin
+      rw [Set.mem_Iio] at nin
+      unfold g
+      rw [dif_pos nin]
+      simp only [Equiv.invFun_as_coe, Subtype.coe_prop]
+    · constructor
+      · intro n nin m min gneqgm
+        rw [Set.mem_Iio] at *
+        unfold g  at gneqgm
+        rw [dif_pos nin, dif_pos min] at gneqgm
+        simp only [Equiv.invFun_as_coe] at gneqgm
+        exact Fin.mk.inj_iff.mp
+          (Equiv.injective equiv.symm (Subtype.eq gneqgm))
+      · intro n ninF
+        simp only [Set.mem_image, Set.mem_Iio]
+        rcases Equiv.surjective equiv.symm ⟨n, ninF⟩ with ⟨k, gkeq⟩
+        use k.1, k.2
+        unfold g
+        rw [dif_pos k.2]
+        simp only [Fin.eta, Equiv.invFun_as_coe, gkeq]
+
 /- ### Results about finite sums ### -/
 
 lemma Finset.sum_Iic_eq_sum_Ioc_add_Iic {f : ℕ → M} {n m : ℕ} (h : n ≤ m) :

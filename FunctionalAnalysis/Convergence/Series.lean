@@ -1450,6 +1450,7 @@ theorem BMCauchy_of_SCauchy (f: ℕ → Y) :
 
 theorem CauchySum_of_SCauchy  (f: ℕ → Y) :
   SCauchy f → CauchySumNet f := by
+    intro fScauchy
     sorry
 
 theorem BMCauchy_of_CauchySum (f: ℕ → Y) :
@@ -1886,34 +1887,7 @@ lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
   ∃ (g: ℕ → ℕ), Bijective g ∧ ∃ (t: ℕ → ℕ), StrictMono t ∧  ∀ (n: ℕ),
   Finset.image g (Finset.Ico (t (2 * n)) (t (2 * n + 1))) = C n \ F n := by
     classical
-    have h : ∀ (F: Finset ℕ), ∃ (g: ℕ → ℕ), Set.BijOn g (Iio F.card) F := by
-      intro F
-      have equiv := Fintype.equivFin F
-      rw [Fintype.card_coe] at equiv
-      let g : ℕ → ℕ := fun n ↦ if h: n < F.card then (equiv.invFun ⟨n, h⟩).1 else 0
-      use g
-      constructor
-      · intro n nin
-        rw [mem_Iio] at nin
-        unfold g
-        rw [dif_pos nin]
-        simp only [Equiv.invFun_as_coe, Subtype.coe_prop]
-      · constructor
-        · intro n nin m min gneqgm
-          rw [mem_Iio] at *
-          unfold g  at gneqgm
-          rw [dif_pos nin, dif_pos min] at gneqgm
-          simp only [Equiv.invFun_as_coe] at gneqgm
-          exact Fin.mk.inj_iff.mp
-            (Equiv.injective equiv.symm (Subtype.eq gneqgm))
-        · intro n ninF
-          simp only [mem_image, mem_Iio]
-          rcases Equiv.surjective equiv.symm ⟨n, ninF⟩ with ⟨k, gkeq⟩
-          use k.1, k.2
-          unfold g
-          rw [dif_pos k.2]
-          simp only [Fin.eta, Equiv.invFun_as_coe, gkeq]
-    rcases Classical.axiom_of_choice h with ⟨r, rdef⟩
+    rcases Classical.axiom_of_choice (Finset.bij_with_card ℕ) with ⟨r, rdef⟩
     let s := sCF C F
     let t := tCF C F
     let T := TCF C F
