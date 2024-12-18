@@ -1,4 +1,4 @@
-import Mathlib.Analysis.RCLike.Basic
+import CajonSastre.Nat
 
 set_option trace.Meta.Tactic.simp false
 
@@ -15,6 +15,27 @@ lemma Finset.union_deleted_mem {ι: Type*} [DecidableEq ι] (J: Finset ι) :
     rw [eq_comm, Finset.sdiff_union_self_eq_union, eq_comm,
         Finset.left_eq_union, Finset.singleton_subset_iff]
     exact jinJ
+
+lemma Finset.sdiff_nempty_of_ssub {α: Type*} [DecidableEq α] {s t: Finset α} :
+  s ⊂ t → t \ s ≠ ∅ := by
+    intro ssubt eqemp
+    simp only [sdiff_eq_empty_iff_subset] at eqemp
+    have := ssubset_of_ssubset_of_subset ssubt eqemp
+    have := not_ssubset_of_subset (subset_refl s)
+    contradiction
+
+lemma Finset.disjoint_sdiff_of_sub {α: Type*} [DecidableEq α]
+(s t u v: Finset α) :
+  s ⊆ v → Disjoint (s \ t) (u \ v) := by
+    intro ssubv
+    rw [Finset.disjoint_iff_ne]
+    intro a ain b bin
+    by_contra!
+    rw [← this] at bin
+    rw [mem_sdiff] at *
+    have := ssubv ain.1
+    have := bin.2
+    contradiction
 
 /- ### Results about intervals ### -/
 
@@ -61,6 +82,20 @@ lemma Finset.Ioc_eq_Ico {n m: ℕ} (ngtz: 0 < n) (mgtz: 0 < m) :
     · intro h
       exact And.intro (Nat.sub_one_lt_of_le ngtz h.1)
         ((Nat.le_sub_one_iff_lt mgtz).mpr h.2)
+
+lemma Finset.sub_Iic_of_lt {s: Finset ℕ} (k: ℕ) :
+  (∀ n ∈ s, n < k) → s ⊂ Finset.Iic k := by
+    intro h
+    rw [Finset.ssubset_iff_of_subset]
+    · use k
+      constructor
+      · rw [Finset.mem_Iic]
+      · by_contra!
+        have := h k this
+        linarith
+    · intro m mins
+      rw [Finset.mem_Iic]
+      exact le_of_lt (h m mins)
 
 /- ### Results about finite sums ### -/
 
@@ -132,6 +167,13 @@ lemma Finset.sum_Iic_succ_top {f: ℕ → M} (n: ℕ) :
   ∑ i ∈ Finset.Iic n, f i + f (n + 1) := by
     simp only [Finset.Icc_eq_Iic,
     Finset.sum_Icc_succ_top (Nat.zero_le (n + 1))]
+
+lemma Finset.sum_image_inj {f: ℕ → M} {g: ℕ → ℕ} (injg: Injective g) (n m: ℕ) :
+  ∑ i ∈ Finset.Icc n m , f (g i) = ∑ i ∈ Finset.image g (Finset.Icc n m), f i := by
+    rw [eq_comm]
+    apply Finset.sum_image
+    intro i _ j _ eq
+    exact injg eq
 
 theorem Finset.sum_decomp {ι: Type*} (J: Finset ι)
   [Nonempty J] (f: ℕ → M) (g: ι → ℕ → ℕ) (gSM: ∀ j ∈ J, StrictMono (g j))
@@ -381,23 +423,6 @@ theorem sum_of_comp_eq (n m: ℕ) (incr: StrictMono g) (eqcomp: f ∘ g = f' ∘
 
 /- `sum_eq_sum_with_no_extra_zeros` -/
 
--- We include a couple of lemmas about Nat.sSup that is not in
--- mathlib for natural numbers:
-lemma Nat.le_sSup {s: Set ℕ} (sbdd: BddAbove s) {k: ℕ} :
-  k ∈ s → k ≤ sSup s := by
-    classical
-    intro kins
-    have := Nat.find_spec (sbdd)
-    rw [mem_upperBounds] at this
-    rw [sSup_def sbdd]
-    exact this k kins
-
-lemma Nat.sSup_le {s: Set ℕ} (snemp : s.Nonempty) (sbdd: BddAbove s) {n: ℕ} :
-  (∀ k ∈ s, k ≤ n) → sSup s ≤ n := by
-    classical
-    intro h
-    exact h (sSup s) (Nat.sSup_mem snemp sbdd)
-
 lemma nezero_ge_nonempty (n: ℕ) (fnez: ∃ k ≥ n, f k ≠ 0) :
   {k | n ≤ k ∧ f k ≠ 0}.Nonempty := by
     rcases fnez with ⟨k, kin, fknez⟩
@@ -565,11 +590,86 @@ lemma sum_invFun_eq_sum_zero (m: ℕ) (incr: StrictMono g)
           assumption
         · linarith
 
-/- ### Sums of bijection composition ### -/
+/- ### Inclusion in families of finite sets ### -/
 
-lemma Finset.sum_image_inj (injg: Injective g) (n m: ℕ) :
-  ∑ i ∈ Finset.Icc n m , f (g i) = ∑ i ∈ Finset.image g (Finset.Icc n m), f i := by
-    rw [eq_comm]
-    apply Finset.sum_image
-    intro i _ j _ eq
-    exact injg eq
+lemma Fsub (C F : ℕ → Finset ℕ)
+(st1: ∀ (n: ℕ), F n ⊂ C n)
+(st2: ∀ (n: ℕ), C n ⊂ F (n + 1)) :
+  ∀ {n m: ℕ}, n ≤ m → F n ⊆ F m := by
+    have st1 : ∀ (n: ℕ), F n ⊆ C n := by
+      intro n
+      exact subset_of_ssubset (st1 n)
+    have st2 : ∀ (n: ℕ), C n ⊆ F (n + 1) := by
+      intro n
+      exact subset_of_ssubset (st2 n)
+    intro n m nlem
+    induction' m with m ih
+    · rw [nonpos_iff_eq_zero] at nlem
+      rw [nlem]
+    · rw [Nat.le_succ_iff, Nat.succ_eq_add_one] at nlem
+      rcases nlem with h | h
+      · exact subset_trans
+          (subset_trans (ih h) (st1 m)) (st2 m)
+      · rw [h]
+
+lemma Csub (C F : ℕ → Finset ℕ)
+(st1: ∀ (n: ℕ), F n ⊂ C n)
+(st2: ∀ (n: ℕ), C n ⊂ F (n + 1)) :
+  ∀ {n m: ℕ}, n ≤ m → C n ⊆ C m := by
+    have st1 : ∀ (n: ℕ), F n ⊆ C n := by
+      intro n
+      exact subset_of_ssubset (st1 n)
+    have st2 : ∀ (n: ℕ), C n ⊆ F (n + 1) := by
+      intro n
+      exact subset_of_ssubset (st2 n)
+    intro n m nlem
+    induction' m with m ih
+    · rw [nonpos_iff_eq_zero] at nlem
+      rw [nlem]
+    · rw [Nat.le_succ_iff, Nat.succ_eq_add_one] at nlem
+      rcases nlem with h | h
+      · exact subset_trans
+          (subset_trans (ih h) (st2 m)) (st1 (m + 1))
+      · rw [h]
+
+lemma FCsub (C F : ℕ → Finset ℕ)
+(st1: ∀ (n: ℕ), F n ⊂ C n)
+(st2: ∀ (n: ℕ), C n ⊂ F (n + 1)) :
+  ∀ {n m: ℕ}, n ≤ m → F n ⊆ C m := by
+    have st1 : ∀ (n: ℕ), F n ⊆ C n := by
+      intro n
+      exact subset_of_ssubset (st1 n)
+    have st2 : ∀ (n: ℕ), C n ⊆ F (n + 1) := by
+      intro n
+      exact subset_of_ssubset (st2 n)
+    intro n m nlem
+    induction' m with m ih
+    · rw [nonpos_iff_eq_zero] at nlem
+      rw [nlem]
+      exact st1 0
+    · rw [Nat.le_succ_iff, Nat.succ_eq_add_one] at nlem
+      rcases nlem with h | h
+      · exact subset_trans
+          (subset_trans (ih h) (st2 m)) (st1 (m + 1))
+      · rw [h]
+        exact st1 (m + 1)
+
+lemma CFsub (C F : ℕ → Finset ℕ)
+(st1: ∀ (n: ℕ), F n ⊂ C n)
+(st2: ∀ (n: ℕ), C n ⊂ F (n + 1)) :
+  ∀ {n m: ℕ}, n < m → C n ⊆ F m := by
+    have st1 : ∀ (n: ℕ), F n ⊆ C n := by
+      intro n
+      exact subset_of_ssubset (st1 n)
+    have st2 : ∀ (n: ℕ), C n ⊆ F (n + 1) := by
+      intro n
+      exact subset_of_ssubset (st2 n)
+    intro n m nlem
+    induction' m with m ih
+    · contradiction
+    · rw [Nat.lt_succ_iff_lt_or_eq] at nlem
+      rcases nlem with h | h
+      · exact subset_trans
+          (subset_trans (ih h) (st1 m)) (st2 m)
+      · rw [h]
+        exact st2 m
