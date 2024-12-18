@@ -1567,30 +1567,29 @@ def sCF (C F : ℕ → Finset ℕ) : ℕ → Finset ℕ := fun n ↦ by
   classical
   exact
   if n = 0 then F 0 else
-  (if h: ∃ k ≥ 1, n = 2 * k then
-  (F (Classical.choose h)) \ (C ((Classical.choose h) - 1)) else
+  (if h: ∃ (k: ℕ), n = 2 * (k + 1) then
+  (F (Classical.choose h + 1)) \ (C (Classical.choose h)) else
   (if h: ∃ (k: ℕ), n = 2 * k + 1 then
   (C (Classical.choose h)) \ (F (Classical.choose h)) else ∅))
 
-def tCF (C F : ℕ → Finset ℕ) : ℤ → ℕ := fun n ↦ if 0 ≤ n then
-  ∑ i ∈ Finset.Iic (Int.toNat n), (sCF C F (Int.toNat i)).card else 0
+def TCF (C F: ℕ → Finset ℕ) : ℕ → ℕ
+  | 0 => 0
+  | n + 1 => ∑ i ∈ Finset.Iic n, (sCF C F i).card
 
-def TCF (C F: ℕ → Finset ℕ) : ℕ → ℕ := fun n ↦ tCF C F n
-
-def pCF (C F: ℕ → Finset ℕ) : ℕ → ℕ := fun n ↦ sInf {k: ℕ | n < tCF C F k}
+def pCF (C F: ℕ → Finset ℕ) : ℕ → ℕ := fun n ↦ sInf {k: ℕ | n < TCF C F (k + 1)}
 
 lemma sCF_zero : sCF C F 0 = F 0 := by
   unfold sCF
   rw [if_pos rfl]
 
-lemma sCF_even : ∀ k ≥ 1, sCF C F (2 * k) = F k \ C (k - 1) := by
-  intro k kge
+lemma sCF_even : ∀ (k: ℕ), sCF C F (2 * (k + 1)) = F (k + 1) \ C k := by
+  intro k
   unfold sCF
-  have : ∃ m ≥ 1, 2 * k = 2 * m := by
+  have : ∃ (m: ℕ), 2 * (k + 1) = 2 * (m + 1) := by
     use k
   have eqk : Classical.choose this = k := by
-    have : 2 * (Classical.choose this) = 2 * k := by
-      exact (Classical.choose_spec this).2.symm
+    have : 2 * (Classical.choose this + 1) = 2 * (k + 1) := by
+      exact (Classical.choose_spec this).symm
     linarith
   rw [if_neg (by linarith), dif_pos this]
   rw [eqk]
@@ -1600,9 +1599,9 @@ lemma sCF_odd : ∀ (k: ℕ), sCF C F (2 * k + 1) = C k \ F k := by
   unfold sCF
   have : ∃ (m: ℕ), 2 * k + 1 = 2 * m + 1:= by
     use k
-  have neg : ¬ ∃ m ≥ 1, 2 * k + 1 = 2 * m := by
+  have neg : ¬ ∃ (m: ℕ), 2 * k + 1 = 2 * (m + 1) := by
     push_neg
-    intro m mge
+    intro m
     exact Ne.symm Nat.two_mul_ne_two_mul_add_one
   have eqk : Classical.choose this = k := by
     have : 2 * (Classical.choose this) + 1 = 2 * k + 1 := by
@@ -1624,8 +1623,7 @@ lemma sCF_not_empty (st1: ∀ (n: ℕ), F n ⊂ C n)
       · rcases h with ⟨k, neq⟩
         rw [neq, add_assoc, one_add_one_eq_two]
         nth_rw 2 [← mul_one 2]
-        rw [← Nat.mul_add, sCF_even (k + 1) (Nat.le_add_left 1 k),
-            Nat.add_sub_cancel]
+        rw [← Nat.mul_add, sCF_even k]
         exact Finset.sdiff_nempty_of_ssub (st2 k)
       · rw [Nat.not_odd_iff_even] at h
         rcases h with ⟨k, neq⟩
@@ -1651,9 +1649,10 @@ lemma sCF_disjoint' (st1: ∀ (n: ℕ), F n ⊂ C n)
           rw [Nat.lt_one_iff] at this
           rw [neqz, meq, this, mul_zero] at nltm
           contradiction
-        rw [meq, sCF_even k this, ← @Finset.sdiff_empty _ _ (F 0)]
-        exact Finset.disjoint_sdiff_of_sub (F 0) ∅ (F k) (C (k - 1))
-          (FCsub C F st1 st2 (zero_le (k -1)))
+        rcases Nat.exists_eq_add_one.mpr this with ⟨q, keq⟩
+        rw [meq, keq, sCF_even q, ← @Finset.sdiff_empty _ _ (F 0)]
+        exact Finset.disjoint_sdiff_of_sub (F 0) ∅ (F (q + 1)) (C q)
+          (FCsub C F st1 st2 (zero_le _))
     · rw [← Ne, ← Nat.pos_iff_ne_zero] at neqz
       by_cases hn : Odd n
       · rcases hn with ⟨k, neq⟩
@@ -1675,13 +1674,13 @@ lemma sCF_disjoint' (st1: ∀ (n: ℕ), F n ⊂ C n)
               rw [Nat.lt_one_iff] at this
               rw [meq, this, mul_zero] at nltm
               contradiction
-            rw [meq, sCF_even q this]
-            have : k ≤ q - 1 := by
-              rw [Nat.le_sub_one_iff_lt this]
-              rw [neq, meq] at nltm
+            rcases Nat.exists_eq_add_one.mpr this with ⟨a, aeq⟩
+            rw [meq, aeq, sCF_even a]
+            have : k ≤ a := by
+              rw [neq, meq, aeq] at nltm
               linarith
             exact Finset.disjoint_sdiff_of_sub
-              (C k) (F k) (F q) (C (q - 1))
+              (C k) (F k) (F (a + 1)) (C a)
               (Csub C F st1 st2 this)
       · simp only [Nat.not_odd_iff_even] at hn
         rcases hn with ⟨k, neq⟩
@@ -1691,15 +1690,16 @@ lemma sCF_disjoint' (st1: ∀ (n: ℕ), F n ⊂ C n)
           rw [Nat.lt_one_iff] at this
           rw [neq, this, mul_zero] at neqz
           contradiction
-        rw [neq, sCF_even k this]
+        rcases Nat.exists_eq_add_one.mpr this with ⟨a, aeq⟩
+        rw [neq, aeq, sCF_even a]
         · by_cases hm : Odd m
           · rcases hm with ⟨q, meq⟩
             rw [meq, sCF_odd q]
-            have : k ≤ q := by
-              rw [neq, meq] at nltm
+            have : a + 1 ≤ q := by
+              rw [neq, meq, aeq] at nltm
               linarith
             exact Finset.disjoint_sdiff_of_sub
-              (F k) (C (k - 1)) (C q) (F q)
+              (F (a + 1)) (C a) (C q) (F q)
               (Fsub C F st1 st2 this)
           · simp only [Nat.not_odd_iff_even] at hm
             rcases hm with ⟨q, meq⟩
@@ -1709,13 +1709,13 @@ lemma sCF_disjoint' (st1: ∀ (n: ℕ), F n ⊂ C n)
               rw [Nat.lt_one_iff] at this
               rw [meq, this, mul_zero] at nltm
               contradiction
-            rw [meq, sCF_even q this]
-            have : k ≤ q - 1 := by
-              rw [Nat.le_sub_one_iff_lt this]
-              rw [neq, meq] at nltm
+            rcases Nat.exists_eq_add_one.mpr this with ⟨b, beq⟩
+            rw [meq, beq, sCF_even b]
+            have : a + 1 ≤ b := by
+              rw [neq, meq, aeq, beq] at nltm
               linarith
             exact Finset.disjoint_sdiff_of_sub
-              (F k) (C (k - 1)) (F q) (C (q - 1))
+              (F (a + 1)) (C a) (F (b + 1)) (C b)
               (FCsub C F st1 st2 this)
 
 lemma sCF_disjoint (st1: ∀ (n: ℕ), F n ⊂ C n)
@@ -1729,23 +1729,20 @@ lemma sCF_disjoint (st1: ∀ (n: ℕ), F n ⊂ C n)
       (sCF_disjoint' st1 st2 m n
       (Nat.lt_of_le_of_ne h (Ne.symm nneqm)))
 
-lemma tCF_neg : ∀ n < 0, tCF C F n = 0 := by
-  intro n nneg
-  unfold tCF
-  rw [if_neg (Int.not_le.mpr nneg)]
+lemma TCF_zero :
+  TCF C F 0 = 0 := by
+    dsimp only [TCF]
 
-lemma tCF_pos :
-  ∀ (n: ℕ), tCF C F n = ∑ i ∈ Finset.Iic n, (sCF C F i).card := by
+lemma TCF_pos :
+  ∀ (n: ℕ), TCF C F (n + 1) = ∑ i ∈ Finset.Iic n, (sCF C F i).card := by
     intro n
-    unfold tCF
-    rw [if_pos (Nat.cast_nonneg n)]
-    simp only [Int.toNat_ofNat]
+    dsimp only [TCF]
 
-lemma tCF_lt_apply (st1: ∀ (n: ℕ), F n ⊂ C n)
+lemma TCF_lt_apply (st1: ∀ (n: ℕ), F n ⊂ C n)
 (st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
 (nemp: F 0 ≠ ∅) :
- ∀ (n: ℕ), n < tCF C F n := by
-  simp only [tCF_pos]
+ ∀ (n: ℕ), n < TCF C F (n + 1) := by
+  simp only [TCF_pos]
   intro n
   induction' n with n ih
   · rw [Finset.sum_Iic_zero, sCF_zero, Finset.card_pos,
@@ -1763,77 +1760,74 @@ lemma TCF_SM {C F: ℕ → Finset ℕ}
   StrictMono (TCF C F) := by
     have : ∀ (n: ℕ), TCF C F n < TCF C F (n + 1) := by
       intro n
-      unfold TCF
-      simp only [tCF_pos]
-      rw [Finset.sum_Iic_succ_top]
-      apply Nat.lt_add_of_pos_right
-      rw [Finset.card_pos, Finset.nonempty_iff_ne_empty]
-      exact sCF_not_empty st1 st2 nemp (n + 1)
+      by_cases h: n = 0
+      · rw [h, TCF_zero, TCF_pos, Finset.sum_Iic_zero,
+            sCF_zero, Finset.card_pos,
+            Finset.nonempty_iff_ne_empty]
+        assumption
+      · rw [← Ne, Nat.ne_zero_iff_zero_lt] at h
+        rcases Nat.exists_eq_add_one.mpr h with ⟨m, meq⟩
+        rw [meq, TCF_pos, TCF_pos, Finset.sum_Iic_succ_top]
+        apply Nat.lt_add_of_pos_right
+        rw [Finset.card_pos, Finset.nonempty_iff_ne_empty]
+        exact sCF_not_empty st1 st2 nemp (m + 1)
     exact strictMono_nat_of_lt_succ this
 
 lemma pCF_not_empty (st1: ∀ (n: ℕ), F n ⊂ C n)
 (st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
 (nemp: F 0 ≠ ∅) :
-  ∀ (n: ℕ), {k: ℕ | n < tCF C F k}.Nonempty := by
+  ∀ (n: ℕ), {k: ℕ | n < TCF C F (k + 1)}.Nonempty := by
     intro n
     use n
     simp only [mem_setOf_eq]
-    exact tCF_lt_apply st1 st2 nemp n
+    exact TCF_lt_apply st1 st2 nemp n
 
 lemma pCF_def_lt (st1: ∀ (n: ℕ), F n ⊂ C n)
 (st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
 (nemp: F 0 ≠ ∅) :
-  ∀ (n: ℕ), n < tCF C F (pCF C F n) := by
+  ∀ (n: ℕ), n < TCF C F (pCF C F n + 1) := by
     intro n
     unfold pCF
     have := Nat.sInf_mem (pCF_not_empty st1 st2 nemp n)
     exact this
 
 lemma pCF_def_le :
-  ∀ (n: ℕ), tCF C F ((pCF C F n) - 1) ≤ n := by
+  ∀ (n: ℕ), TCF C F (pCF C F n) ≤ n := by
     intro n
     by_cases pnz: pCF C F n = 0
     · rw [pnz]
-      simp only [Nat.cast_zero, zero_sub,
-                  tCF_neg (-1) (neg_one_lt_zero), zero_le]
-    · have : (@Nat.cast ℤ _ (pCF C F n)) - 1 =
-        Nat.cast ((pCF C F n) - 1) := by
-          rw [Int.natCast_pred_of_pos (Nat.zero_lt_of_ne_zero pnz)]
-      rw [this]
-      unfold pCF
-      have := Nat.not_mem_of_lt_sInf (Nat.sub_one_lt pnz)
-      simp only [mem_setOf_eq, not_lt] at this
+      rw [TCF_zero]
+      exact zero_le _
+    · have := Nat.not_mem_of_lt_sInf (Nat.sub_one_lt pnz)
+      unfold pCF at *
+      rw [← Ne, ← Nat.one_le_iff_ne_zero] at pnz
+      simp only [mem_setOf_eq, not_lt,
+                 Nat.sub_add_cancel pnz] at this
       assumption
 
 lemma sub_tcF_in_spCF (st1: ∀ (n: ℕ), F n ⊂ C n)
 (st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
 (nemp: F 0 ≠ ∅) :
-  ∀ (n: ℕ), (n - tCF C F ((pCF C F n) - 1)) ∈
+  ∀ (n: ℕ), (n - TCF C F (pCF C F n)) ∈
     Iio (sCF C F (pCF C F n)).card := by
       intro n
       rw [mem_Iio]
       by_cases h: pCF C F n = 0
-      · rw [h, Nat.cast_zero, zero_sub, sCF_zero,
-                   tCF_neg (-1) (neg_one_lt_zero), Nat.sub_zero]
+      · rw [h, TCF_zero, Nat.sub_zero, sCF_zero]
         have := pCF_def_lt st1 st2 nemp n
-        rw [h, tCF_pos 0, Finset.sum_Iic_zero, sCF_zero] at this
+        rw [h, TCF_pos 0, Finset.sum_Iic_zero, sCF_zero] at this
         assumption
       · apply Nat.sub_lt_left_of_lt_add (pCF_def_le n)
-        have : (@Nat.cast ℤ _ (pCF C F n)) - 1 =
-          Nat.cast ((pCF C F n) - 1) := by
-            rw [Int.natCast_pred_of_pos (Nat.zero_lt_of_ne_zero h)]
         have pmone : pCF C F n = (pCF C F n - 1) + 1 := by
           exact (Nat.succ_pred_eq_of_ne_zero h).symm
-        rw [this, tCF_pos]
-        nth_rw 2 [pmone]
-        rw [← Finset.sum_Iic_succ_top (pCF C F n - 1),
-            ← pmone, ← tCF_pos]
+        rw [pmone, TCF_pos, ← Finset.sum_Iic_succ_top (pCF C F n - 1),
+            ← pmone, ← TCF_pos]
         exact pCF_def_lt st1 st2 nemp n
 
 lemma spCF_eq_C_minus_F_iff (st1: ∀ (n: ℕ), F n ⊂ C n)
 (st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
 (nemp: F 0 ≠ ∅) :
-  ∀ (n m: ℕ), m ∈ Finset.Ico (TCF C F (2 * n)) (TCF C F (2* n + 1)) ↔
+  ∀ (n m: ℕ), m ∈ Finset.Ico (TCF C F (2 * n + 1)) (TCF C F (2* n + 2)) ↔
     sCF C F (pCF C F m) = C n \ F n := by
       intro n m
       rw [Finset.mem_Ico]
@@ -1848,16 +1842,24 @@ lemma spCF_eq_C_minus_F_iff (st1: ∀ (n: ℕ), F n ⊂ C n)
             exact min.2
           · apply Nat.le_sInf (pCF_not_empty st1 st2 nemp m)
             intro k kin
+            simp only [mem_setOf_eq] at kin
             rw [← StrictMono.le_iff_le (TCF_SM st1 st2 nemp)]
-            dsimp only [TCF]
             by_contra! klt
             have ltk := lt_of_le_of_lt min.1 kin
-            have := @StrictMono.lt_iff_lt _ _ _ _ _ (TCF_SM st1 st2 nemp)
-            unfold TCF at this
-            rw [this] at *
+            rw [← TCF_pos] at ltk
+            rw [StrictMono.lt_iff_lt (TCF_SM st1 st2 nemp)] at *
             linarith
         rw [← sCF_odd n, this]
       · intro eq
+        have pCFpos : 1 ≤ pCF C F m := by
+          by_contra!
+          rw [Nat.lt_one_iff] at this
+          rw [this, sCF_zero, ← @Finset.sdiff_empty _ _ (F 0)] at eq
+          have := Finset.disjoint_sdiff_of_sub (F 0) ∅
+            (C n) (F n) (Fsub C F st1 st2 (zero_le n))
+          rw [← eq, Finset.disjoint_self_iff_empty,
+              Finset.sdiff_empty] at this
+          contradiction
         rw [← sCF_odd n] at eq
         have : ¬Disjoint (sCF C F (pCF C F m))
           (sCF C F (2 * n + 1)) := by
@@ -1866,17 +1868,14 @@ lemma spCF_eq_C_minus_F_iff (st1: ∀ (n: ℕ), F n ⊂ C n)
         have := (Decidable.not_imp_not).mpr
           (sCF_disjoint st1 st2 (pCF C F m) (2 * n + 1)) this
         simp only [ne_eq, Decidable.not_not] at this
-        rw [← this, (Nat.sub_eq_of_eq_add this).symm]
-        unfold TCF
+        rw [← this, (Nat.sub_eq_of_eq_add this).symm,
+            ← one_add_one_eq_two, ← add_assoc,
+            Nat.sub_add_cancel pCFpos]
         constructor
         · by_cases h: pCF C F m = 0
           · rw [h] at this
             linarith
-          · have : Nat.cast (pCF C F m - 1) =
-              (@Nat.cast ℤ _ (pCF C F m)) - 1 := by
-                rw [Int.natCast_pred_of_pos (Nat.zero_lt_of_ne_zero h)]
-            rw [this]
-            exact pCF_def_le m
+          · exact pCF_def_le m
         · exact pCF_def_lt st1 st2 nemp m
 
 lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
@@ -1889,10 +1888,9 @@ lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
     classical
     rcases Classical.axiom_of_choice (Finset.bij_with_card ℕ) with ⟨r, rdef⟩
     let s := sCF C F
-    let t := tCF C F
     let T := TCF C F
     let p := pCF C F
-    let g : ℕ → ℕ := fun n ↦ r (s (p n)) (n - t ((p n) - 1))
+    let g : ℕ → ℕ := fun n ↦ r (s (p n)) (n - T (p n))
     have eqg : ∀ (n m: ℕ), (g n = g m → p n = p m) := by
       intro n m gneqgm
       unfold g at gneqgm
@@ -1901,7 +1899,7 @@ lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
       rw [gneqgm] at inspn
       have : ¬ Disjoint (s (p n)) (s (p m)) := by
         rw [Finset.not_disjoint_iff]
-        use r (s (p m)) (m - t ((p m) - 1))
+        use r (s (p m)) (m - T (p m))
         exact And.intro inspn inspm
       have := (Decidable.not_imp_not).mpr (sCF_disjoint st1 st2 (p n) (p m)) this
       simp only [ne_eq, Decidable.not_not] at this
@@ -1914,12 +1912,9 @@ lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
         have := sub_tcF_in_spCF st1 st2 nemp n
         rw [h] at *
         simp only [Nat.cast_zero, zero_sub,
-                   tCF_neg (-1) (neg_one_lt_zero), Nat.sub_zero] at *
+                   TCF_zero, Nat.sub_zero] at *
         exact (rdef (sCF C F 0)).1 this
-      · have eq : (@Nat.cast ℤ _ (p n)) - 1 = Nat.cast ((p n) - 1) := by
-          rw [Int.natCast_pred_of_pos (Nat.zero_lt_of_ne_zero h)]
-        have := sub_tcF_in_spCF st1 st2 nemp n
-        rw [eq] at *
+      · have := sub_tcF_in_spCF st1 st2 nemp n
         exact (rdef (s (p n))).1 this
     use g
     have gsurj : Surjective g := by
@@ -1942,13 +1937,13 @@ lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
           unfold p pCF
           rw [Nat.sInf_eq (pCF_not_empty st1 st2 nemp k)]
           constructor
-          · simp only [mem_setOf_eq, Nat.cast_zero, tCF_pos,
+          · simp only [mem_setOf_eq, Nat.cast_zero, TCF_pos,
                        Finset.sum_Iic_zero, ← mem_Iio]
             assumption
           · intros
             exact zero_le _
         simp only [this, Nat.cast_zero, zero_sub,
-                   tCF_neg (-1) neg_one_lt_zero, tsub_zero]
+                   TCF_zero, tsub_zero]
         assumption
       · rcases Nat.exists_eq_succ_of_ne_zero nz with ⟨N, neqNp1⟩
         rw [Nat.succ_eq_add_one] at neqNp1
