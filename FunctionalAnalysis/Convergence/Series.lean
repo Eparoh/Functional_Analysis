@@ -1884,7 +1884,7 @@ lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
 (st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
 (nemp: F 0 ≠ ∅) :
   ∃ (g: ℕ → ℕ), Bijective g ∧ ∃ (t: ℕ → ℕ), StrictMono t ∧  ∀ (n: ℕ),
-  Finset.image g (Finset.Ico (t (2 * n)) (t (2 * n + 1))) = C n \ F n := by
+  Finset.image g (Finset.Ico (t (2 * n + 1)) (t (2 * n + 2))) = C n \ F n := by
     classical
     rcases Classical.axiom_of_choice (Finset.bij_with_card ℕ) with ⟨r, rdef⟩
     let s := sCF C F
@@ -1960,29 +1960,31 @@ lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
             exact And.intro minCN mninFN
           rw [← sCF_odd N] at this
           rcases (rdef (s (2 * N + 1))).2.2 this with ⟨k, kin, eq⟩
-          use k + t (2 * N)
+          use k + T (2 * N + 1)
           dsimp only
-          have peq : p (k + t (2 * N)) = 2 * N + 1 := by
+          have peq : p (k + T (2 * N + 1)) = 2 * N + 1 := by
             unfold p pCF
             rw [Nat.sInf_eq (pCF_not_empty st1 st2 nemp _)]
             constructor
             · rw [mem_setOf_eq]
-              have : k + t (2 * N) < t (2 * N) +
+              have : k + T (2 * N + 1) < T (2 * N + 1) +
                 (s (2 * N + 1)).card := by
                   rw [add_comm]
-                  exact Nat.add_lt_add_left kin (t (2 * N))
-              nth_rw 2 [← Nat.cast_ofNat] at this
-              unfold t at this
-              rw [← Nat.cast_mul, tCF_pos, ← Finset.sum_Iic_succ_top,
-                  ← tCF_pos] at this
+                  exact Nat.add_lt_add_left kin (T (2 * N + 1))
+              unfold T at this
+              rw [TCF_pos, ← Finset.sum_Iic_succ_top,
+                  ← TCF_pos, ← TCF_pos] at this
               assumption
             · intro q qin
               simp only [mem_setOf_eq] at qin
-              have := lt_of_le_of_lt
-                (Nat.le_add_left (t (2 * N)) k) qin
-              rw [← Nat.cast_ofNat, ← Nat.cast_mul] at this
-              rw [Nat.add_one_le_iff, ← StrictMono.lt_iff_lt (TCF_SM st1 st2 nemp)]
-              assumption
+              have : T (2 * N + 2) ≤ T ( q + 1) := by
+                by_contra!
+                have := lt_of_le_of_lt
+                    (Nat.le_add_left (TCF C F (2 * N + 1)) k) qin
+                rw [StrictMono.lt_iff_lt ((TCF_SM st1 st2 nemp))] at *
+                linarith
+              rw [StrictMono.le_iff_le (TCF_SM st1 st2 nemp)] at this
+              linarith
           simp only [peq, Nat.cast_add, Nat.cast_mul, Nat.cast_ofNat,
                      Nat.cast_one, add_sub_cancel_right,
                      add_tsub_cancel_right]
@@ -1990,40 +1992,36 @@ lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
         · have min : m ∈ F (N + 1) \ C N := by
             rw [Finset.mem_sdiff]
             exact And.intro minFn minCN
-          have := @sCF_even C F (N + 1) (Nat.le_add_left 1 N)
-          rw [add_tsub_cancel_right] at this
+          have := @sCF_even C F N
           rw [← this, Nat.mul_add, mul_one] at min
           rcases (rdef (s (2 * N + 2))).2.2 min with ⟨k, kin, eq⟩
-          use k + t (2 * N + 1)
+          use k + T (2 * N + 2)
           dsimp only
-          have peq : p (k + t (2 * N + 1)) = 2 * N + 2 := by
+          have peq : p (k + T (2 * N + 2)) = 2 * N + 2 := by
             unfold p pCF
             rw [Nat.sInf_eq (pCF_not_empty st1 st2 nemp _)]
             constructor
             · rw [mem_setOf_eq]
-              have : k + t (2 * N + 1) < t (2 * N + 1) +
+              have : k + T (2 * N + 2) < T (2 * N + 2) +
                 (s (2 * N + 2)).card := by
                   rw [add_comm]
-                  exact Nat.add_lt_add_left kin (t (2 * N + 1))
-              nth_rw 3 [← Nat.cast_ofNat] at this
-              nth_rw 2 [← Nat.cast_one] at this
-              unfold t at this
-              rw [← Nat.cast_mul, ← Nat.cast_add, tCF_pos,
-                  ← Finset.sum_Iic_succ_top, ← tCF_pos,
-                  add_assoc, one_add_one_eq_two] at this
+                  exact Nat.add_lt_add_left kin (T (2 * N + 2))
+              unfold T at this
+              rw [TCF_pos, ← Finset.sum_Iic_succ_top,
+                  ← TCF_pos, ← TCF_pos, add_assoc,
+                  one_add_one_eq_two] at this
               assumption
             · intro q qin
               simp only [mem_setOf_eq] at qin
-              have := lt_of_le_of_lt
-                (Nat.le_add_left (t (2 * N + 1)) k) qin
-              rw [← Nat.cast_ofNat, ← Nat.cast_mul] at this
-              rw [Nat.add_one_le_iff,
-                  ← StrictMono.lt_iff_lt (TCF_SM st1 st2 nemp)]
+              have : T (2 * N + 2) ≤ T q := by
+                by_contra!
+                have := lt_of_le_of_lt
+                    (Nat.le_add_left (TCF C F (2 * N + 2)) k) qin
+                rw [StrictMono.lt_iff_lt ((TCF_SM st1 st2 nemp))] at *
+                linarith
+              rw [StrictMono.le_iff_le (TCF_SM st1 st2 nemp)] at this
               assumption
-          have : 2 - 1 = (1: ℤ) := by
-            rfl
-          rw [peq, Nat.cast_add, Nat.cast_ofNat, ← add_sub, this,
-              Nat.cast_mul, Nat.cast_ofNat, add_tsub_cancel_right]
+          rw [peq, Nat.add_sub_cancel]
           assumption
     constructor
     · constructor
@@ -2260,17 +2258,16 @@ theorem RSerie_iff_Summable {Y: Type*} [NormedAddCommGroup Y] (f: ℕ → Y) :
       have := CauchySerie_of_conv_serie (f ∘ g) this
       rw [cauchyserie_iff_vanishing_norm] at this
       rcases this (ε₀/2) (by norm_num [ε₀pos]) with ⟨n₀, eq1⟩
-      have : ∃ (k: ℕ), n₀ + 1 ≤ t (2 * k) - 1 := by
-        use n₀ + 1
-        have : 2 * n₀ + 1 ≤ t (2 * (n₀ + 1)) - 1 := by
+      have : ∃ (k: ℕ), n₀ ≤ t (2 * k + 1) - 1 := by
+        use n₀
+        have : 2 * n₀ ≤ t (2 * n₀ + 1) - 1 := by
           apply Nat.le_sub_of_add_le
-          rw [add_assoc, one_add_one_eq_two, Nat.mul_add, mul_one]
           exact StrictMono.le_apply SMt
         apply Nat.le_trans _ this
         linarith
       rcases this with ⟨k, n₀letk⟩
       have cont1 : ε₀/2 < ‖∑ i ∈ Finset.Ico
-        (t (2 * k)) (t (2 * k + 1)), (f ∘ g) i‖ := by
+        (t (2 * k + 1)) (t (2 * k + 2)), (f ∘ g) i‖ := by
         calc
           ε₀/2 = ε₀ - ε₀/2 := by
             linarith
@@ -2288,18 +2285,18 @@ theorem RSerie_iff_Summable {Y: Type*} [NormedAddCommGroup Y] (f: ℕ → Y) :
             simp only [sub_sub_sub_cancel_right, F]
             apply congr_arg
             rw [← Finset.sum_sdiff_eq_sub (subset_of_ssubset (st1 k))]
-          _ = ‖∑ i ∈ Finset.Ico (t (2 * k)) (t (2 * k + 1)), (f ∘ g) i‖ := by
+          _ = ‖∑ i ∈ Finset.Ico (t (2 * k + 1)) (t (2 * k + 2)), (f ∘ g) i‖ := by
             rw [← eq k, Finset.sum_image (fun _ _ _ _ eq ↦
                 (gbij.1 eq))]
             simp only [@comp_apply _ _ _ f g]
-      have contr := eq1 (t (2 * k) - 1) (t (2 * k + 1) - 1)
-        (Nat.le_trans (Nat.le_add_right n₀ 1) n₀letk)
+      have contr := eq1 (t (2 * k + 1) - 1) (t (2 * k + 2) - 1) n₀letk
         (Nat.sub_le_sub_right (StrictMono.monotone SMt
-        (Nat.le_add_right (2 * k) 1)) 1)
-      have := Nat.lt_of_lt_pred
-              (lt_of_lt_of_le (Nat.zero_lt_succ n₀) n₀letk)
-      rw [Finset.Ioc_eq_Ico this (lt_of_lt_of_le this
-          (StrictMono.monotone SMt (Nat.le_add_right (2 * k) 1)))] at contr
+        (Nat.le_succ (2 * k + 1))) 1)
+      have := lt_of_lt_of_le (Nat.zero_lt_succ (2 * k))
+          (StrictMono.le_apply SMt)
+      rw [Nat.succ_eq_add_one] at this
+      rw [Finset.Ioc_eq_Ico this (lt_trans this
+          (SMt (Nat.lt_add_one (2 * k + 1))))] at contr
       linarith
     · intro sumf
       intro g bijg
