@@ -85,6 +85,13 @@ lemma Finset.Ioc_eq_Ico {n m: ℕ} (ngtz: 0 < n) (mgtz: 0 < m) :
       exact And.intro (Nat.sub_one_lt_of_le ngtz h.1)
         ((Nat.le_sub_one_iff_lt mgtz).mpr h.2)
 
+lemma Finset.Ico_eq_Ioc {n m: ℕ} :
+  Finset.Ico (n + 1) (m + 1) = Finset.Ioc n m := by
+    rw [← Finset.Ioc_eq_Ico (Nat.zero_lt_succ n)
+        (Nat.zero_lt_succ m), Nat.succ_eq_add_one,
+        Nat.add_sub_cancel, Nat.succ_eq_add_one,
+        Nat.add_sub_cancel]
+
 lemma Finset.sub_Iic_of_lt {s: Finset ℕ} (k: ℕ) :
   (∀ n ∈ s, n < k) → s ⊂ Finset.Iic k := by
     intro h
@@ -676,9 +683,10 @@ lemma CFsub {β: Type*} (C F : ℕ → Finset β)
       · rw [h]
         exact st2 m
 
-/- ### Minimum of finite set in non empty type -/
+/- ### Minimum and maximum of finite set in non empty type -/
 
-def Finset.min'' (s: Finset α) := if h: s.Nonempty then Finset.min' s h else default
+def Finset.min'' (s: Finset α) := if h: s.Nonempty then
+   Finset.min' s h else default
 
 lemma Finset.min''_def (s : Finset α) (H : s.Nonempty) :
   Finset.min'' s = Finset.min' s H := by
@@ -718,6 +726,48 @@ theorem Finset.lt_min''_iff (s : Finset α) (H : s.Nonempty) {x : α} :
   x < Finset.min'' s ↔ ∀ y ∈ s, x < y := by
     rw [Finset.min''_def s H]
     exact Finset.lt_min'_iff s H
+
+def Finset.max'' (s: Finset α) := if h: s.Nonempty then
+   Finset.max' s h else default
+
+lemma Finset.max''_def (s : Finset α) (H : s.Nonempty) :
+  Finset.max'' s = Finset.max' s H := by
+    unfold Finset.max''
+    rw [dif_pos H]
+
+theorem Finset.max''_mem (s : Finset α) (H : s.Nonempty) :
+  Finset.max'' s ∈ s := by
+    rw [Finset.max''_def s H]
+    exact Finset.max'_mem s H
+
+theorem Finset.le_max'' (s : Finset α) (x : α) (H2 : x ∈ s) :
+  x ≤ Finset.max'' s := by
+    rw [Finset.max''_def s ⟨x, H2⟩]
+    exact Finset.le_max' s x H2
+
+theorem Finset.max''_le (s : Finset α) (H : s.Nonempty) (x : α)
+  (H2 : ∀ y ∈ s, y ≤ x) :
+    Finset.max'' s ≤ x := by
+    rw [Finset.max''_def s H]
+    exact Finset.max'_le s H x H2
+
+@[simp]
+theorem Finset.max''_le_iff (s : Finset α) (H : s.Nonempty) {x : α} :
+  Finset.max'' s ≤ x ↔ ∀ y ∈ s, y ≤ x := by
+    rw [Finset.max''_def s H]
+    exact Finset.max'_le_iff s H
+
+@[simp]
+theorem Finset.max''_singleton (a : α) :
+  Finset.max'' {a} = a := by
+    rw [Finset.max''_def {a} (singleton_nonempty _)]
+    exact Finset.max'_singleton a
+
+@[simp]
+theorem Finset.max''_lt_iff (s : Finset α) (H : s.Nonempty) {x : α} :
+  Finset.max'' s < x ↔ ∀ y ∈ s, y < x := by
+    rw [Finset.max''_def s H]
+    exact Finset.max'_lt_iff s H
 
 /- ### Bijection beetween finite sets and its cardinal ### -/
 
@@ -1057,7 +1107,58 @@ lemma mem_Ts_Ico_iff_ps_eq {β: Type*} {s: ℕ → Finset β}
       rw [← eq]
       exact And.intro (ps_le m) (lt_ps snemp m)
 
-/- From this, we can now obtain a bijective function on `ℕ` -/
+lemma cover_gTs {β: Type*} [DecidableEq β] {s: ℕ → Finset β}
+  (snemp: ∀ (n: ℕ), s n ≠ ∅) {h: Finset β → ℕ → β}
+  (hdef: ∀ (F : Finset β), BijOn (h F) (Iio F.card) F) :
+    ∀ (m: ℕ) (b: β), b ∈ s m →
+    ∃ n ∈ Finset.Ico (Ts s m) (Ts s (m + 1)),
+    h (s (ps s n)) (n - Ts s (ps s n)) = b := by
+      intro m b binsm
+      rcases (hdef (s m)).2.2 binsm with ⟨n, nin, hsmneqb⟩
+      use n + Ts s m
+      have : ps s (n + Ts s m) = m := by
+        rw [← mem_Ts_Ico_iff_ps_eq snemp, Finset.mem_Ico]
+        constructor
+        · exact Nat.le_add_left (Ts s m) n
+        · by_cases h: m = 0
+          · rw [h, Ts_zero, add_zero, Ts_pos, Finset.sum_Iic_zero]
+            rw [mem_Iio, h] at nin
+            assumption
+          · rcases Nat.exists_eq_succ_of_ne_zero h with ⟨k, neqkp1⟩
+            rw [neqkp1, Nat.succ_eq_add_one, Ts_pos, Ts_pos,
+                Finset.sum_Iic_succ_top, add_comm]
+            apply Nat.add_lt_add_left
+            rw [mem_Iio, neqkp1] at nin
+            assumption
+      constructor
+      · rw [mem_Ts_Ico_iff_ps_eq snemp]
+        assumption
+      · rw [this, add_tsub_cancel_right]
+        assumption
+
+lemma image_Ts {β: Type*} [DecidableEq β] {s: ℕ → Finset β}
+  (snemp: ∀ (n: ℕ), s n ≠ ∅)
+  {h: Finset β → ℕ → β}
+  (hdef: ∀ (F : Finset β), BijOn (h F) (Iio F.card) F) :
+    ∀ (n: ℕ), Finset.image
+      (fun (n: ℕ) ↦ h (s (ps s n)) (n - Ts s (ps s n)))
+    (Finset.Ico (Ts s n) (Ts s (n + 1))) = s n := by
+      intro n
+      ext k
+      rw [Finset.mem_image]
+      constructor
+      · intro kin
+        rcases kin with ⟨m, min, gmeqk⟩
+        rw [← (mem_Ts_Ico_iff_ps_eq snemp n m).mp min, ← gmeqk]
+        exact (hdef (s (ps s m))).1 (correct_domain snemp m)
+      · intro kin
+        rcases cover_gTs snemp hdef n k kin with ⟨m, min, gmeqk⟩
+        use m
+
+/- From this, we can now proof that given any `s: ℕ → Finset ℕ`
+   there exists of a bijective function `g: ℕ → ℕ` and an strictly
+   increasing sequence `t: ℕ → ℕ` such that for any `n: ℕ`
+   `g '' [t n, t (n + 1)] = s n` -/
 
 lemma exists_bij_img_eq {s: ℕ → Finset ℕ}
   (snemp: ∀ (n: ℕ), s n ≠ ∅)
@@ -1081,34 +1182,13 @@ lemma exists_bij_img_eq {s: ℕ → Finset ℕ}
       have := (Decidable.not_imp_not).mpr (disj (ps s n) (ps s m)) this
       simp only [ne_eq, Decidable.not_not] at this
       assumption
-    have gon : ∀ (n: ℕ), g n ∈ s (ps s n) := by
-      intro n
-      unfold g
-      have := correct_domain snemp n
-      exact (hdef (s (ps s n))).1 this
     have gsurj : Surjective g := by
       unfold g
       intro m
       dsimp only
       rcases un m with ⟨n, minsn⟩
-      rcases (hdef (s n)).2.2 minsn with ⟨a, ain, hsnaeqm⟩
-      use a + Ts s n
-      have : ps s (a + Ts s n) = n := by
-        rw [← mem_Ts_Ico_iff_ps_eq snemp, Finset.mem_Ico]
-        constructor
-        · exact Nat.le_add_left (Ts s n) a
-        · by_cases h: n = 0
-          · rw [h, Ts_zero, add_zero, Ts_pos, Finset.sum_Iic_zero]
-            rw [mem_Iio, h] at ain
-            assumption
-          · rcases Nat.exists_eq_succ_of_ne_zero h with ⟨k, neqkp1⟩
-            rw [neqkp1, Nat.succ_eq_add_one, Ts_pos, Ts_pos,
-                Finset.sum_Iic_succ_top, add_comm]
-            apply Nat.add_lt_add_left
-            rw [mem_Iio, neqkp1] at ain
-            assumption
-      rw [this, add_tsub_cancel_right]
-      assumption
+      rcases cover_gTs snemp hdef n m minsn with ⟨a, ain, eq⟩
+      use a
     use g
     constructor
     · constructor
@@ -1127,39 +1207,33 @@ lemma exists_bij_img_eq {s: ℕ → Finset ℕ}
     · use (Ts s)
       constructor
       · exact Ts_StrictMono snemp
-      · intro n
-        ext k
-        rw [Finset.mem_image]
-        constructor
-        · intro kin
-          rcases kin with ⟨m, min, gmeqk⟩
-          rw [← (mem_Ts_Ico_iff_ps_eq snemp n m).mp min, ← gmeqk]
-          exact gon m
-        · intro kin
-          rcases gsurj k with ⟨m, gmeqk⟩
-          use m
-          constructor
-          · rw [mem_Ts_Ico_iff_ps_eq snemp n m]
-            rw [← gmeqk] at kin
-            have : ¬ Disjoint (s (ps s m)) (s n) := by
-              rw [Finset.not_disjoint_iff]
-              use g m
-              exact And.intro (gon m) kin
-            have := (Decidable.not_imp_not).mpr
-              (disj (ps s m) n) this
-            simp only [ne_eq, Decidable.not_not] at this
-            assumption
-          · assumption
+      · exact image_Ts snemp hdef
 
-/- Given two sequences `C F : ℕ → Finset β` of finite subsets, we can the sequence
-   `sCF C F` given by:
+/- We can also obtain the same result but changing the "bijectivity" by
+   "strictly increasing" -/
+
+lemma exists_StrictMono_img_eq {s: ℕ → Finset ℕ} (snemp: ∀ (n: ℕ), s n ≠ ∅)
+  (incr: ∀ (n: ℕ), sSup (s n).toSet < sInf (s (n + 1))):
+  ∃ (g: ℕ → ℕ), StrictMono g ∧ ∃ (t: ℕ → ℕ), StrictMono t ∧ ∀ (n: ℕ),
+  Finset.image g (Finset.Ico (t n) (t (n + 1))) = s n := by
+    classical
+    rcases Classical.axiom_of_choice
+      (Finset.bij_StrictMono_with_card ℕ) with ⟨h, hdef⟩
+    let g : ℕ → ℕ := fun n ↦ h (s (ps s n)) (n - Ts s (ps s n))
+    use g
+    constructor
+    · sorry
+    · use (Ts s)
+      constructor
+      · exact Ts_StrictMono snemp
+      · have : ∀ (x : Finset ℕ), BijOn (h x) (Iio x.card) x := by
+          intro F
+          exact (hdef F).2
+        exact image_Ts snemp this
+
+/- Given two sequences `C F : ℕ → Finset β` of finite subsets, we can construct
+   a sequence `sCF C F` given by:
    `F 0, C 0 \ F 0, F 1 \ C 0, C 1 \ F 1, F 2 \ C 1, ...` -/
-
-/- If furthermore we have that `∀ (n: ℕ), F n ⊂ C n`,
-   `∀ (n: ℕ), C n ⊂ F (n + 1)` and `F 0 ≠ ∅` we can ensure that:
-   - Every set of the sequence is nonempty (`sCF_not_empty`)
-   - Every pair of distinct sets in the sequence are
-     disjoint (`sCF_disjoint`) -/
 
 def sCF [DecidableEq β] (C F : ℕ → Finset β) : ℕ → Finset β := fun n ↦ by
   classical
@@ -1203,6 +1277,12 @@ lemma sCF_odd [DecidableEq β] :
       linarith
     rw [if_neg (by linarith), dif_neg neg, dif_pos this]
     rw [eqk]
+
+/- If furthermore we have that `∀ (n: ℕ), F n ⊂ C n`,
+   `∀ (n: ℕ), C n ⊂ F (n + 1)` and `F 0 ≠ ∅` we can ensure that:
+   - Every set of the sequence is nonempty (`sCF_not_empty`)
+   - Every pair of distinct sets in the sequence are
+     disjoint (`sCF_disjoint`) -/
 
 lemma sCF_not_empty [DecidableEq β] (st1: ∀ (n: ℕ), F n ⊂ C n)
 (st2: ∀ (n: ℕ), C n ⊂ F (n + 1)) (nemp: F 0 ≠ ∅) :
@@ -1326,317 +1406,119 @@ lemma sCF_disjoint [DecidableEq β] (st1: ∀ (n: ℕ), F n ⊂ C n)
 /- Lastly, if we also have that `∀ (m: β), ∃ (n: ℕ), m ∈ F n` we get
    that sCF also covers `β` -/
 
-lemma sCF_cover [DecidableEq β] (st1: ∀ (n: ℕ), F n ⊂ C n)
-(st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
-(un: ∀ (m: β), ∃ (n: ℕ), m ∈ F n) :
-  ∀ (m: β), ∃ (n: ℕ), m ∈ sCF C F n := by
-    sorry
+lemma sCF_cover [DecidableEq β] (un: ∀ (m: β), ∃ (n: ℕ), m ∈ F n) :
+∀ (m: β), ∃ (n: ℕ), m ∈ sCF C F n := by
+  intro m
+  let n := sInf {k: ℕ | m ∈ F k}
+  have notemp : {k: ℕ | m ∈ F k}.Nonempty := by
+    rcases un m with ⟨n, minFn⟩
+    use n
+    assumption
+  have minFn : m ∈ F n := Nat.sInf_mem notemp
+  by_cases nz : n = 0
+  · rw [nz] at minFn
+    use 0
+    rw [sCF_zero]
+    assumption
+  · rcases Nat.exists_eq_succ_of_ne_zero nz with ⟨N, neqNp1⟩
+    rw [Nat.succ_eq_add_one] at neqNp1
+    rw [neqNp1] at minFn
+    have mninFN : m ∉ F N := by
+      by_contra!
+      have : N ∈ {k | m ∈ F k} := by
+        exact this
+      have := Nat.sInf_le this
+      linarith
+    by_cases minCN : m ∈ C N
+    · have : m ∈ C N \ F N := by
+        rw [Finset.mem_sdiff]
+        exact And.intro minCN mninFN
+      rw [← sCF_odd N] at this
+      use (2 * N + 1)
+    · have min : m ∈ F (N + 1) \ C N := by
+        rw [Finset.mem_sdiff]
+        exact And.intro minFn minCN
+      rw [← @sCF_even _ C F _ N, Nat.mul_add, mul_one] at min
+      use 2 * N + 2
 
-lemma spCF_eq_C_minus_F_iff (st1: ∀ (n: ℕ), F n ⊂ C n)
-(st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
-(nemp: F 0 ≠ ∅) :
-  ∀ (n m: ℕ), m ∈ Finset.Ico (TCF C F (2 * n + 1)) (TCF C F (2* n + 2)) ↔
-    sCF C F (pCF C F m) = C n \ F n := by
-      intro n m
-      rw [Finset.mem_Ico]
-      constructor
-      · intro min
-        dsimp only [TCF] at min
-        have : pCF C F m = 2 * n + 1 := by
-          unfold pCF
-          apply le_antisymm
-          · apply Nat.sInf_le
-            rw [mem_setOf_eq]
-            exact min.2
-          · apply Nat.le_sInf (pCF_not_empty st1 st2 nemp m)
-            intro k kin
-            simp only [mem_setOf_eq] at kin
-            rw [← StrictMono.le_iff_le (TCF_SM st1 st2 nemp)]
-            by_contra! klt
-            have ltk := lt_of_le_of_lt min.1 kin
-            rw [← TCF_pos] at ltk
-            rw [StrictMono.lt_iff_lt (TCF_SM st1 st2 nemp)] at *
-            linarith
-        rw [← sCF_odd n, this]
-      · intro eq
-        have pCFpos : 1 ≤ pCF C F m := by
-          by_contra!
-          rw [Nat.lt_one_iff] at this
-          rw [this, sCF_zero, ← @Finset.sdiff_empty _ _ (F 0)] at eq
-          have := Finset.disjoint_sdiff_of_sub (F 0) ∅
-            (C n) (F n) (Fsub C F st1 st2 (zero_le n))
-          rw [← eq, Finset.disjoint_self_iff_empty,
-              Finset.sdiff_empty] at this
-          contradiction
-        rw [← sCF_odd n] at eq
-        have : ¬Disjoint (sCF C F (pCF C F m))
-          (sCF C F (2 * n + 1)) := by
-            rw [eq, Finset.disjoint_self_iff_empty]
-            exact sCF_not_empty st1 st2 nemp _
-        have := (Decidable.not_imp_not).mpr
-          (sCF_disjoint st1 st2 (pCF C F m) (2 * n + 1)) this
-        simp only [ne_eq, Decidable.not_not] at this
-        rw [← this, (Nat.sub_eq_of_eq_add this).symm,
-            ← one_add_one_eq_two, ← add_assoc,
-            Nat.sub_add_cancel pCFpos]
-        constructor
-        · by_cases h: pCF C F m = 0
-          · rw [h] at this
-            linarith
-          · exact pCF_def_le m
-        · exact pCF_def_lt st1 st2 nemp m
-
-lemma exists_bij_img_eq_C_minus_F (C F : ℕ → Finset ℕ)
-(un: ∀ (m: ℕ), ∃ (n: ℕ), m ∈ F n)
-(st1: ∀ (n: ℕ), F n ⊂ C n)
-(st2: ∀ (n: ℕ), C n ⊂ F (n + 1))
-(nemp: F 0 ≠ ∅) :
-  ∃ (g: ℕ → ℕ), Bijective g ∧ ∃ (t: ℕ → ℕ), StrictMono t ∧  ∀ (n: ℕ),
-  Finset.image g (Finset.Ico (t (2 * n + 1)) (t (2 * n + 2))) = C n \ F n := by
-    classical
-    rcases Classical.axiom_of_choice (Finset.bij_with_card ℕ) with ⟨r, rdef⟩
-    let s := sCF C F
-    let T := TCF C F
-    let p := pCF C F
-    let g : ℕ → ℕ := fun n ↦ r (s (p n)) (n - T (p n))
-    have eqg : ∀ (n m: ℕ), (g n = g m → p n = p m) := by
-      intro n m gneqgm
-      unfold g at gneqgm
-      have inspn := (rdef (s (p n))).1 (sub_tcF_in_spCF st1 st2 nemp n)
-      have inspm := (rdef (s (p m))).1 (sub_tcF_in_spCF st1 st2 nemp m)
-      rw [gneqgm] at inspn
-      have : ¬ Disjoint (s (p n)) (s (p m)) := by
-        rw [Finset.not_disjoint_iff]
-        use r (s (p m)) (m - T (p m))
-        exact And.intro inspn inspm
-      have := (Decidable.not_imp_not).mpr (sCF_disjoint st1 st2 (p n) (p m)) this
-      simp only [ne_eq, Decidable.not_not] at this
-      assumption
-    have gon : ∀ (n: ℕ), g n ∈ s (p n) := by
-      intro n
-      unfold g
-      by_cases h: p n = 0
-      · unfold p at *
-        have := sub_tcF_in_spCF st1 st2 nemp n
-        rw [h] at *
-        simp only [Nat.cast_zero, zero_sub,
-                   TCF_zero, Nat.sub_zero] at *
-        exact (rdef (sCF C F 0)).1 this
-      · have := sub_tcF_in_spCF st1 st2 nemp n
-        exact (rdef (s (p n))).1 this
-    use g
-    have gsurj : Surjective g := by
-      unfold g
-      unfold s at *
-      intro m
-      let n := sInf {k: ℕ | m ∈ F k}
-      have notemp : {k: ℕ | m ∈ F k}.Nonempty := by
-        rcases un m with ⟨n, minFn⟩
-        use n
-        simp only [mem_setOf_eq]
-        assumption
-      have minFn : m ∈ F n := Nat.sInf_mem notemp
-      by_cases nz : n = 0
-      · rw [nz, ← @sCF_zero C F] at minFn
-        rcases (rdef (s 0)).2.2 minFn with ⟨k, kin, rszkeqm⟩
-        use k
-        dsimp only
-        have : p k = 0 := by
-          unfold p pCF
-          rw [Nat.sInf_eq (pCF_not_empty st1 st2 nemp k)]
-          constructor
-          · simp only [mem_setOf_eq, Nat.cast_zero, TCF_pos,
-                       Finset.sum_Iic_zero, ← mem_Iio]
-            assumption
-          · intros
-            exact zero_le _
-        simp only [this, Nat.cast_zero, zero_sub,
-                   TCF_zero, tsub_zero]
-        assumption
-      · rcases Nat.exists_eq_succ_of_ne_zero nz with ⟨N, neqNp1⟩
-        rw [Nat.succ_eq_add_one] at neqNp1
-        rw [neqNp1] at minFn
-        have mninFN : m ∉ F N := by
-          by_contra!
-          have : N ∈ {k | m ∈ F k} := by
-            exact this
-          have := Nat.sInf_le this
-          linarith
-        by_cases minCN : m ∈ C N
-        · have : m ∈ C N \ F N := by
-            rw [Finset.mem_sdiff]
-            exact And.intro minCN mninFN
-          rw [← sCF_odd N] at this
-          rcases (rdef (s (2 * N + 1))).2.2 this with ⟨k, kin, eq⟩
-          use k + T (2 * N + 1)
-          dsimp only
-          have peq : p (k + T (2 * N + 1)) = 2 * N + 1 := by
-            unfold p pCF
-            rw [Nat.sInf_eq (pCF_not_empty st1 st2 nemp _)]
-            constructor
-            · rw [mem_setOf_eq]
-              have : k + T (2 * N + 1) < T (2 * N + 1) +
-                (s (2 * N + 1)).card := by
-                  rw [add_comm]
-                  exact Nat.add_lt_add_left kin (T (2 * N + 1))
-              unfold T at this
-              rw [TCF_pos, ← Finset.sum_Iic_succ_top,
-                  ← TCF_pos, ← TCF_pos] at this
-              assumption
-            · intro q qin
-              simp only [mem_setOf_eq] at qin
-              have : T (2 * N + 2) ≤ T ( q + 1) := by
-                by_contra!
-                have := lt_of_le_of_lt
-                    (Nat.le_add_left (TCF C F (2 * N + 1)) k) qin
-                rw [StrictMono.lt_iff_lt ((TCF_SM st1 st2 nemp))] at *
-                linarith
-              rw [StrictMono.le_iff_le (TCF_SM st1 st2 nemp)] at this
-              linarith
-          simp only [peq, Nat.cast_add, Nat.cast_mul, Nat.cast_ofNat,
-                     Nat.cast_one, add_sub_cancel_right,
-                     add_tsub_cancel_right]
-          assumption
-        · have min : m ∈ F (N + 1) \ C N := by
-            rw [Finset.mem_sdiff]
-            exact And.intro minFn minCN
-          have := @sCF_even C F N
-          rw [← this, Nat.mul_add, mul_one] at min
-          rcases (rdef (s (2 * N + 2))).2.2 min with ⟨k, kin, eq⟩
-          use k + T (2 * N + 2)
-          dsimp only
-          have peq : p (k + T (2 * N + 2)) = 2 * N + 2 := by
-            unfold p pCF
-            rw [Nat.sInf_eq (pCF_not_empty st1 st2 nemp _)]
-            constructor
-            · rw [mem_setOf_eq]
-              have : k + T (2 * N + 2) < T (2 * N + 2) +
-                (s (2 * N + 2)).card := by
-                  rw [add_comm]
-                  exact Nat.add_lt_add_left kin (T (2 * N + 2))
-              unfold T at this
-              rw [TCF_pos, ← Finset.sum_Iic_succ_top,
-                  ← TCF_pos, ← TCF_pos, add_assoc,
-                  one_add_one_eq_two] at this
-              assumption
-            · intro q qin
-              simp only [mem_setOf_eq] at qin
-              have : T (2 * N + 2) ≤ T q := by
-                by_contra!
-                have := lt_of_le_of_lt
-                    (Nat.le_add_left (TCF C F (2 * N + 2)) k) qin
-                rw [StrictMono.lt_iff_lt ((TCF_SM st1 st2 nemp))] at *
-                linarith
-              rw [StrictMono.le_iff_le (TCF_SM st1 st2 nemp)] at this
-              assumption
-          rw [peq, Nat.add_sub_cancel]
-          assumption
-    constructor
-    · constructor
-      · intro n m gneqgm
-        have := eqg n m gneqgm
-        unfold g at gneqgm
-        rw [this] at gneqgm
-        have nin := sub_tcF_in_spCF st1 st2 nemp n
-        have min := sub_tcF_in_spCF st1 st2 nemp m
-        unfold p at this
-        rw [this] at nin
-        have sol := (rdef (s (p m))).2.1 nin min gneqgm
-        apply Nat.sub_sub_cancel _ (pCF_def_le m) sol
-        rw [← this]
-        exact pCF_def_le n
-      · exact gsurj
-    · use T
-      constructor
-      · exact TCF_SM st1 st2 nemp
-      · intro n
-        ext k
-        rw [Finset.mem_image]
-        constructor
-        · intro kin
-          rcases kin with ⟨m, min, gmeqk⟩
-          rw [← (spCF_eq_C_minus_F_iff st1 st2 nemp n m).mp min, ← gmeqk]
-          exact gon m
-        · intro kin
-          rcases gsurj k with ⟨m, gmeqk⟩
-          use m
-          constructor
-          · rw [spCF_eq_C_minus_F_iff st1 st2 nemp n m]
-            rw [← sCF_odd n, ← gmeqk] at kin
-            have : ¬ Disjoint (s (p m)) (s (2 * n + 1)) := by
-              rw [Finset.not_disjoint_iff]
-              use g m
-              exact And.intro (gon m) kin
-            have := (Decidable.not_imp_not).mpr
-              (sCF_disjoint st1 st2 (p m) (2 * n + 1)) this
-            simp only [ne_eq, Decidable.not_not] at this
-            unfold p at this
-            rw [this, ← sCF_odd n]
-          · assumption
+/- Given a function `c: Finset ℕ → Finset ℕ` such that any `c F` is
+   nonempty and some `p: ℕ → Prop` we can construct an strictly increasing
+  sequence `sInf_inc` such that for all `n: ℕ`:
+  - `c ([0, sInf_inc n]) ⊂ Finset.Iic ([0, sInf_inc (n + 1)])`
+  - `p (sInf_inc n)` -/
 
 def sInf_inc (c: Finset ℕ → Finset ℕ)
   (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop) : ℕ → ℕ
   | 0 => sInf {k: ℕ | p k}
   | n + 1 => sInf {k: ℕ | p k ∧
-    Finset.max' (c (Finset.Iic (sInf_inc c cnemp p n)))
-      (cnemp (Finset.Iic (sInf_inc c cnemp p n))) < k}
+    Finset.max'' (c (Finset.Iic (sInf_inc c cnemp p n))) < k ∧
+    sInf_inc c cnemp p n < k}
+
+lemma sInf_not_empty (c: Finset ℕ → Finset ℕ)
+  (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop)
+  (pevnt: ∀ (n: ℕ), ∃ k > n, p k) :
+    ∀ (n: ℕ), {k: ℕ | p k ∧ Finset.max''
+    (c (Finset.Iic (sInf_inc c cnemp p n))) < k ∧
+    sInf_inc c cnemp p n < k}.Nonempty := by
+      intro n
+      rcases pevnt (Nat.max (Finset.max''
+      (c (Finset.Iic (sInf_inc c cnemp p n))))
+      (sInf_inc c cnemp p n)) with ⟨k, kgt, pk⟩
+      use k
+      rw [mem_setOf_eq, Finset.max''_lt_iff]
+      · constructor
+        · assumption
+        · constructor
+          · intro m min
+            exact lt_of_le_of_lt (Finset.le_max''
+              (c ((Finset.Iic (sInf_inc c cnemp p n)))) m min)
+              (lt_of_le_of_lt (Nat.le_max_left
+              (c (Finset.Iic (sInf_inc c cnemp p n))).max''
+              (sInf_inc c cnemp p n)) kgt)
+          · exact lt_of_le_of_lt (Nat.le_max_right
+              (c (Finset.Iic (sInf_inc c cnemp p n))).max''
+              (sInf_inc c cnemp p n)) kgt
+      · exact cnemp (Finset.Iic (sInf_inc c cnemp p n))
 
 lemma sInf_inc_def (c: Finset ℕ → Finset ℕ)
   (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop)
   (pevnt: ∀ (n: ℕ), ∃ k > n, p k) :
     ∀ (n: ℕ), c (Finset.Iic (sInf_inc c cnemp p n)) ⊂
-    Finset.Iic (sInf_inc c cnemp p (n + 1)) := by
-      intro n
-      apply Finset.sub_Iic_of_lt
-      intro k kin
-      unfold sInf_inc
-      have : {k: ℕ | p k ∧
-        Finset.max' (c (Finset.Iic (sInf_inc c cnemp p n)))
-        (cnemp (Finset.Iic (sInf_inc c cnemp p n))) < k}.Nonempty := by
-          rcases pevnt (Finset.max' (c (Finset.Iic (sInf_inc c cnemp p n)))
-            (cnemp (Finset.Iic (sInf_inc c cnemp p n)))) with ⟨k, kgt, pk⟩
-          use k
-          simp only [Finset.max'_lt_iff, mem_setOf_eq]
-          constructor
-          · assumption
-          · intro m min
-            exact lt_of_le_of_lt (Finset.le_max'
-              (c ((Finset.Iic (sInf_inc c cnemp p n)))) m min) kgt
-      apply Nat.le_sInf this
-      intro m min
-      simp only [Finset.max'_lt_iff, mem_setOf_eq] at min
-      exact min.2 k kin
-
-lemma sInf_inc_in (c: Finset ℕ → Finset ℕ)
-  (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop)
-  (pevnt: ∀ (n: ℕ), ∃ k > n, p k) :
-    ∀ (n: ℕ), p (sInf_inc c cnemp p n):= by
+    Finset.Iic (sInf_inc c cnemp p (n + 1)) ∧
+    p (sInf_inc c cnemp p n) := by
       classical
       intro n
-      by_cases h: n = 0
-      · rw [h]
+      constructor
+      · apply Finset.sub_Iic_of_lt
+        intro k kin
         unfold sInf_inc
-        have : {k: ℕ | p k}.Nonempty := by
-          rcases pevnt 0 with ⟨k, kgt, pk⟩
-          use k
-          simpa only [mem_setOf_eq]
-        rw [Nat.sInf_def this]
-        exact Nat.find_spec this
-      · have : ∃ (m: ℕ), n = m + 1 := by
-          exact Nat.exists_eq_succ_of_ne_zero h
-        rcases this with ⟨m, neq⟩
-        have nempt : {k: ℕ | p k ∧
-          Finset.max' (c (Finset.Iic (sInf_inc c cnemp p m)))
-          (cnemp (Finset.Iic (sInf_inc c cnemp p m))) < k}.Nonempty := by
-            rcases pevnt (Finset.max' (c (Finset.Iic (sInf_inc c cnemp p m)))
-              (cnemp (Finset.Iic (sInf_inc c cnemp p m)))) with ⟨k, kgt, pk⟩
+        apply Nat.le_sInf (sInf_not_empty c cnemp p pevnt n)
+        intro m min
+        rw [mem_setOf_eq, Finset.max''_lt_iff] at min
+        · exact min.2.1 k kin
+        · exact cnemp (Finset.Iic (sInf_inc c cnemp p n))
+      · by_cases h: n = 0
+        · rw [h]
+          unfold sInf_inc
+          have : {k: ℕ | p k}.Nonempty := by
+            rcases pevnt 0 with ⟨k, kgt, pk⟩
             use k
-            simp only [Finset.max'_lt_iff, mem_setOf_eq]
-            constructor
-            · assumption
-            · intro a ain
-              exact lt_of_le_of_lt (Finset.le_max'
-                (c ((Finset.Iic (sInf_inc c cnemp p m)))) a ain) kgt
-        rw [neq]
-        unfold sInf_inc
-        exact (Nat.sInf_mem nempt).1
+            simpa only [mem_setOf_eq]
+          rw [Nat.sInf_def this]
+          exact Nat.find_spec this
+        · rcases Nat.exists_eq_succ_of_ne_zero h with ⟨m, neq⟩
+          rw [neq]
+          unfold sInf_inc
+          exact (Nat.sInf_mem (sInf_not_empty c cnemp p pevnt m)).1
+
+lemma sInf_inc_StrictMono (c: Finset ℕ → Finset ℕ)
+  (cnemp: ∀ (F: Finset ℕ), (c F).Nonempty) (p: ℕ → Prop)
+  (pevnt: ∀ (n: ℕ), ∃ k > n, p k) :
+    StrictMono (sInf_inc c cnemp p) := by
+      have : ∀ (n: ℕ), sInf_inc c cnemp p n <
+        sInf_inc c cnemp p (n + 1) := by
+          intro n
+          rw [sInf_inc]
+          exact (Nat.sInf_mem
+            (sInf_not_empty c cnemp p pevnt n)).2.2
+      exact strictMono_nat_of_lt_succ this
